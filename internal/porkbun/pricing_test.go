@@ -23,6 +23,10 @@ func TestPricingDecode(t *testing.T) {
 	    "quest": {
 	      "registration": "1.10", "renewal": "22.62", "transfer": "22.62", "specialType": null,
 	      "coupons": {"registration": {"code": "AWESOMENESS", "max_per_user": "1", "first_year_only": "yes", "type": "amount", "amount": 1.5}}
+	    },
+	    "io": {
+	      "registration": "43.94", "renewal": "43.94", "transfer": "43.94",
+	      "coupons": {"registration": {"code": "SPARSE", "amount": null}}
 	    }
 	  }
 	}`
@@ -72,6 +76,18 @@ func TestPricingDecode(t *testing.T) {
 	}
 	if string(c.FirstYearOnly) != "yes" {
 		t.Errorf("coupon first_year_only = %q", c.FirstYearOnly)
+	}
+
+	// No live coupon has ever been observed — only /mock's, which fills in
+	// every field — so a coupon with fields missing must still decode. It
+	// reads as absent, which the data source renders as first_year_only =
+	// false and max_per_user = 0.
+	sparse, ok := out.Pricing["io"].Coupons["registration"]
+	if !ok {
+		t.Fatalf("sparse coupon did not decode: %+v", out.Pricing["io"].Coupons)
+	}
+	if string(sparse.FirstYearOnly) != "" || sparse.MaxPerUser.Int64() != 0 || string(sparse.Amount) != "" {
+		t.Errorf("missing coupon fields did not decode to zero values: %+v", sparse)
 	}
 }
 
