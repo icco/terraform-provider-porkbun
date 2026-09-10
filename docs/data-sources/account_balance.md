@@ -4,17 +4,20 @@ page_title: "porkbun_account_balance Data Source - porkbun"
 subcategory: ""
 description: |-
   Reads the available account credit for the authenticated Porkbun account (GET /account/balance). It takes no arguments — the credentials select the account.
-  Registrations, renewals and transfers draw down this credit, so the usual use is a check block that fails the plan before a wide apply runs the account dry halfway through.
-  The balance is read live on every plan and refresh, so it is a snapshot rather than a reservation: a renewal Porkbun bills between the plan and the apply can still take the account below whatever a check block asserted.
+  Registrations, renewals and transfers draw down this credit, so the usual use is to gate the resources that spend it.
+  Gate them with a lifecycle.precondition on the spending resource, not with a check block: a failed check assertion is reported as a warning and the apply continues, so it would register domains until the account ran dry — the outcome the guard is there to prevent. A failed precondition stops the apply before the resource is created.
+  The balance is read live on every plan and refresh, so it is a snapshot rather than a reservation: a renewal Porkbun bills between the plan and the apply can still take the account below whatever the precondition asserted.
 ---
 
 # porkbun_account_balance (Data Source)
 
 Reads the available account credit for the authenticated Porkbun account (`GET /account/balance`). It takes no arguments — the credentials select the account.
 
-Registrations, renewals and transfers draw down this credit, so the usual use is a `check` block that fails the plan before a wide apply runs the account dry halfway through.
+Registrations, renewals and transfers draw down this credit, so the usual use is to gate the resources that spend it.
 
-The balance is read live on every plan and refresh, so it is a snapshot rather than a reservation: a renewal Porkbun bills between the plan and the apply can still take the account below whatever a `check` block asserted.
+Gate them with a `lifecycle.precondition` on the spending resource, not with a `check` block: a failed `check` assertion is reported as a **warning** and the apply continues, so it would register domains until the account ran dry — the outcome the guard is there to prevent. A failed precondition stops the apply before the resource is created.
+
+The balance is read live on every plan and refresh, so it is a snapshot rather than a reservation: a renewal Porkbun bills between the plan and the apply can still take the account below whatever the precondition asserted.
 
 ## Example Usage
 
@@ -22,17 +25,28 @@ The balance is read live on every plan and refresh, so it is a snapshot rather t
 # No arguments: the provider credentials select the account.
 data "porkbun_account_balance" "current" {}
 
-# Registrations, renewals and transfers are paid from account credit. Fail the
-# plan rather than discover mid-apply that the account ran dry partway through
-# a batch of domains. The comparison is in whole cents, so no float rounding
-# decides whether the guard trips.
-check "sufficient_credit" {
-  assert {
-    condition = data.porkbun_account_balance.current.balance_cents >= 5000
-    error_message = format(
-      "Porkbun account credit is %s, below the $50.00 this configuration expects.",
-      data.porkbun_account_balance.current.display,
-    )
+# Registrations, renewals and transfers are paid from account credit.
+#
+# To stop an apply that would run the account dry, the guard has to be a
+# precondition on the resource that spends. A failed `check` block assertion
+# is only a warning: the apply continues past it and spends anyway, which is
+# the outcome the guard exists to prevent. A failed precondition stops the
+# apply before the resource is created.
+#
+# terraform_data stands in here for whichever resource does the spending.
+# The comparison is in whole cents, so no float rounding decides whether the
+# guard trips.
+resource "terraform_data" "registration_guard" {
+  input = "gates the resources that draw down Porkbun credit"
+
+  lifecycle {
+    precondition {
+      condition = data.porkbun_account_balance.current.balance_cents >= 5000
+      error_message = format(
+        "Porkbun account credit is %s, below the $50.00 this configuration expects.",
+        data.porkbun_account_balance.current.display,
+      )
+    }
   }
 }
 

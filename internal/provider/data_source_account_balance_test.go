@@ -58,15 +58,6 @@ func TestAccAccountBalanceDataSource(t *testing.T) {
 		Steps: []resource.TestStep{{
 			Config: providerConfig(url) + `
 data "porkbun_account_balance" "current" {}
-
-# The intended use: refuse to plan a batch of registrations the account
-# cannot pay for. Cents throughout, so no float rounding decides it.
-check "sufficient_credit" {
-  assert {
-    condition     = data.porkbun_account_balance.current.balance_cents >= 1000
-    error_message = "not enough Porkbun credit"
-  }
-}
 `,
 			ConfigStateChecks: []statecheck.StateCheck{
 				statecheck.ExpectKnownValue("data.porkbun_account_balance.current",
@@ -136,6 +127,41 @@ func TestAccAccountBalanceDataSourceCredentialError(t *testing.T) {
 data "porkbun_account_balance" "current" {}
 `,
 			ExpectError: regexp.MustCompile(`secretapikey`),
+		}},
+	})
+}
+
+// The advertised use of this data source is gating resources that spend
+// account credit, and the construct that does that is a
+// lifecycle.precondition, not a check block: a failed check assertion is a
+// warning and the apply proceeds to spend anyway.
+//
+// This asserts the guard actually stops an apply. A check block here would
+// pass this file whatever its condition said, which is how the wrong advice
+// shipped in the docs in the first place.
+func TestAccAccountBalancePreconditionBlocksApply(t *testing.T) {
+	url := newBalanceFake(t, balanceFake{balance: 1234, display: "$12.34"})
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{{
+			// 1234 cents is below the 99999 the precondition demands.
+			Config: providerConfig(url) + `
+data "porkbun_account_balance" "current" {}
+
+resource "terraform_data" "spender" {
+  input = "stands in for a registration"
+
+  lifecycle {
+    precondition {
+      condition     = data.porkbun_account_balance.current.balance_cents >= 99999
+      error_message = "not enough Porkbun credit"
+    }
+  }
+}
+`,
+			ExpectError: regexp.MustCompile(`not enough Porkbun credit`),
 		}},
 	})
 }

@@ -37,11 +37,15 @@ func (d *accountBalanceDataSource) Schema(_ context.Context, _ datasource.Schema
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Reads the available account credit for the authenticated Porkbun account " +
 			"(`GET /account/balance`). It takes no arguments — the credentials select the account.\n\n" +
-			"Registrations, renewals and transfers draw down this credit, so the usual use is a `check` block " +
-			"that fails the plan before a wide apply runs the account dry halfway through.\n\n" +
+			"Registrations, renewals and transfers draw down this credit, so the usual use is to gate the " +
+			"resources that spend it.\n\n" +
+			"Gate them with a `lifecycle.precondition` on the spending resource, not with a `check` block: a " +
+			"failed `check` assertion is reported as a **warning** and the apply continues, so it would " +
+			"register domains until the account ran dry — the outcome the guard is there to prevent. A failed " +
+			"precondition stops the apply before the resource is created.\n\n" +
 			"The balance is read live on every plan and refresh, so it is a snapshot rather than a reservation: " +
-			"a renewal Porkbun bills between the plan and the apply can still take the account below whatever a " +
-			"`check` block asserted.",
+			"a renewal Porkbun bills between the plan and the apply can still take the account below whatever " +
+			"the precondition asserted.",
 		Attributes: map[string]schema.Attribute{
 			"balance_cents": schema.Int64Attribute{
 				Computed: true,
