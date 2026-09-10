@@ -16,7 +16,7 @@ builds:
     flags:
       - -trimpath
     ldflags:
-      - '-s -w -X main.version={{.Version}} -X main.commit={{.Commit}}'
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}}
     goos:
       - freebsd
       - windows
@@ -24,19 +24,20 @@ builds:
       - darwin
     goarch:
       - amd64
-      - '386'
+      - "386"
       - arm
       - arm64
     ignore:
       - goos: darwin
-        goarch: '386'
+        goarch: "386"
     binary: '{{ .ProjectName }}_v{{ .Version }}'
 archives:
-  - formats: [zip]
+  - formats:
+      - zip
     name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
 checksum:
   extra_files:
-    - glob: 'terraform-registry-manifest.json'
+    - glob: terraform-registry-manifest.json
       name_template: '{{ .ProjectName }}_{{ .Version }}_manifest.json'
   name_template: '{{ .ProjectName }}_{{ .Version }}_SHA256SUMS'
   algorithm: sha256
@@ -44,17 +45,17 @@ signs:
   - artifacts: checksum
     args:
       # --batch because this runs unattended in CI.
-      - "--batch"
-      - "--local-user"
-      - "{{ .Env.GPG_FINGERPRINT }}"
-      - "--output"
-      - "${signature}"
+      - --batch
+      - --local-user
+      - '{{ .Env.GPG_FINGERPRINT }}'
+      - --output
+      - ${signature}
       # Detached and BINARY. Adding --armor breaks registry ingestion.
-      - "--detach-sign"
-      - "${artifact}"
+      - --detach-sign
+      - ${artifact}
 release:
   extra_files:
-    - glob: 'terraform-registry-manifest.json'
+    - glob: terraform-registry-manifest.json
       name_template: '{{ .ProjectName }}_{{ .Version }}_manifest.json'
   # Kept on permanently. A published registry version can never be replaced,
   # so the last gate before a permanent mistake is a human clicking publish.

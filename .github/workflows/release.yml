@@ -1,21 +1,19 @@
 name: Release
-
 # Tagging is irreversible: a published registry version can never be
 # unpublished or replaced. Before pushing a tag, rehearse with the
 # workflow_dispatch below, which runs everything except the publish.
 on:
   push:
-    tags: ['v*']
+    tags:
+      - v*
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'Build and sign a snapshot without publishing anything'
+        description: Build and sign a snapshot without publishing anything
         type: boolean
         default: true
-
 permissions:
   contents: write
-
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
@@ -26,7 +24,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: 'go.mod'
+          go-version-file: go.mod
           cache: true
       - name: Import GPG key
         uses: crazy-max/ghaction-import-gpg@2dc316deee8e90f13e1a351ab510b4d5bc0c82cd # v7.0.0
@@ -40,7 +38,7 @@ jobs:
           # Pinned deliberately. `latest` means a GoReleaser release landing
           # between the rehearsal and the tag silently changes behaviour.
           version: v2.18.1
-          args: >-
+          args: |-
             ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run)
                 && 'release --snapshot --clean --skip=publish'
                 || 'release --clean' }}

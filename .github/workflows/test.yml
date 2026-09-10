@@ -1,7 +1,8 @@
 name: Tests
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
 permissions:
   contents: read
@@ -14,7 +15,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: 'go.mod'
+          go-version-file: go.mod
           cache: true
       - run: go mod download
       - run: go build -v ./...
@@ -26,7 +27,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: 'go.mod'
+          go-version-file: go.mod
           cache: true
       - run: gofmt -l . | tee /dev/stderr | (! read)
       - run: go vet ./...
@@ -41,13 +42,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: 'go.mod'
+          go-version-file: go.mod
           cache: true
       # tfplugindocs shells out to `terraform fmt`, which is no longer
       # preinstalled on ubuntu-latest runners.
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
-          terraform_version: '1.16.2'
+          terraform_version: 1.16.2
           terraform_wrapper: false
       - run: make docs
       - name: Check docs are committed
@@ -62,12 +63,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        terraform: ['1.14.*', '1.15.*', '1.16.*']
+        terraform:
+          - 1.14.*
+          - 1.15.*
+          - 1.16.*
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: 'go.mod'
+          go-version-file: go.mod
           cache: true
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
