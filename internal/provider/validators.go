@@ -9,25 +9,13 @@ import (
 
 var _ validator.String = canonicalDomain{}
 
-// canonicalDomain requires a domain to be written the one way that round
-// trips: trimmed, lowercase, and without the root label's trailing dot.
+// canonicalDomain requires the one spelling that round trips: trimmed,
+// lowercase, no trailing dot. DNS is case-insensitive, Terraform is not, so
+// two spellings would be two resources managing one delegation. Applied to
+// data source inputs too, for one spelling provider-wide.
 //
-// DNS names are case-insensitive, Terraform is not. On the resources
-// `domain` forces replacement and core compares it literally, so respelling
-// "example.com" as "Example.com" plans a destroy-and-create for a cosmetic
-// edit. Worse, nothing otherwise stops two differently spelled resources
-// managing the same registry delegation and fighting over it; the provider
-// never sees the two as related.
-//
-// It is on the data source inputs too, where nothing is replaced, so that
-// one domain has one spelling everywhere in the provider. Do not remove it
-// there on the grounds that a data source has no state to churn.
-//
-// The nameserver set folds spellings instead, but only because a plan
-// modifier can fall back to the prior state value. On create there is no
-// prior value, and core rejects a planned value for a non-computed attribute
-// that differs from the configuration — so here the spelling must be
-// required rather than applied.
+// The nameserver set folds spellings instead; that needs a prior state value,
+// which create does not have.
 type canonicalDomain struct{}
 
 func (canonicalDomain) Description(_ context.Context) string {

@@ -145,16 +145,9 @@ func (r *domainNameserversResource) write(
 		return
 	}
 
-	// updateNs answers a bare {"status":"SUCCESS"} without echoing what was
-	// applied, so read the delegation back — but report the answer, never
-	// store it.
-	//
-	// `nameservers` is Required, so core demands the state written here equal
-	// the planned value exactly. /domain/getNs reads live from the registry
-	// and propagation is not synchronous, so a write that succeeded can read
-	// back stale; storing that would abort the apply with "Provider produced
-	// inconsistent result after apply … This is a bug in the provider". Warn
-	// instead: the next refresh shows persistent divergence as ordinary drift.
+	// Read back to report, never to store. nameservers is Required, so state
+	// must equal the planned value; getNs can read stale and storing that
+	// aborts the apply as an inconsistent result. Drift shows on next refresh.
 	switch applied, err := r.client.GetNameservers(ctx, domain); {
 	case err != nil:
 		tflog.Warn(ctx, "could not read back nameserver delegation", map[string]any{"domain": domain, "error": err.Error()})
@@ -189,14 +182,9 @@ func (r *domainNameserversResource) write(
 	diags.Append(setNameserversIdentity(ctx, identity, domain)...)
 }
 
-// ValidateConfig rejects a nameserver set that collapses below the floor.
-//
-// setvalidator.SizeBetween counts configured strings, but the wire payload is
-// built from NormalizeNameservers, which folds case, strips trailing dots and
-// de-duplicates: ["ns1.example.com", "ns1.example.com."] passes the size
-// validator and delegates to one nameserver. Catching it here names the real
-// problem at plan time; porkbun.UpdateNameservers refuses it again for
-// anything that reaches the client by another route.
+// ValidateConfig rejects a set that collapses below the floor once
+// normalized -- SizeBetween counts configured strings, so two spellings of
+// one host pass it and delegate to a single nameserver.
 func (r *domainNameserversResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
 	var config domainNameserversModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
