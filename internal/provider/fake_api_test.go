@@ -24,7 +24,6 @@ import (
 type fakeAPI struct {
 	mu sync.Mutex
 
-	// nameservers maps domain to the normalized set last written.
 	nameservers map[string][]string
 	// previousNameservers holds the set a domain had before the most recent
 	// updateNs, so getNs can replay it.
@@ -35,9 +34,8 @@ type fakeAPI struct {
 	// immediately after a write can legitimately still show the old
 	// delegation. A synchronous fake can never exercise that path.
 	staleReads int
-	// records maps domain to record id to record.
-	records map[string]map[string]*fakeRecord
-	nextID  int
+	records    map[string]map[string]*fakeRecord
+	nextID     int
 
 	// deleteNsCalls counts attempts to unset a delegation. Nothing should
 	// ever increment it: the provider's Delete is a no-op by design.

@@ -1,10 +1,10 @@
 # Releasing
 
-A published Terraform Registry version can never be unpublished or replaced, and a pushed tag can never be reused. Work through this in order.
+A published Terraform Registry version can never be unpublished or replaced: a bad `v1.0.0` is permanent under the `icco` namespace. Work through this in order.
 
 ## Before the first release
 
-- [ ] **Enable Actions on the fork.** GitHub disables Actions on new forks until a human clicks through the Actions tab. Pushing a tag in that state runs nothing at all — no release, no error — and the tag is spent.
+- [ ] **Enable Actions on the fork.** GitHub disables Actions on new forks until a human clicks through the Actions tab. Pushing a tag in that state runs nothing at all — no release, no error — and the push event will not replay: you have to delete the remote tag and push it again.
 - [ ] **Merge to `main` first.** GitHub only registers workflows that exist on the default branch, so `Release` has no `workflow_dispatch` button until this branch is merged. Merge, then rehearse.
 - [ ] **Confirm the repository is listable.** registry.terraform.io → Publish → Provider, and check that `icco/terraform-provider-porkbun` appears in the repository dropdown. This repository is a fork and HashiCorp's docs say nothing about forks. If it does not appear, recreate it as a fresh non-fork and push this tree — free now, impossible once a tag exists.
 - [ ] **Register the signing key, public key first.** The registry accepts RSA and DSA, not ECC. Use a dedicated RSA-4096 release key rather than a personal or work identity.
@@ -20,7 +20,7 @@ Locally, using the GoReleaser version `.github/workflows/release.yml` pins (curr
 
 ```sh
 goreleaser check          # catches v2 config errors that otherwise surface only at release time
-goreleaser healthcheck    # confirms gpg and friends are installed
+goreleaser healthcheck
 git tag v1.0.0            # local only, do not push
 GPG_FINGERPRINT=<FPR> goreleaser release --clean --skip=publish
 git tag -d v1.0.0

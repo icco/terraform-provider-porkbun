@@ -3,12 +3,12 @@
 page_title: "porkbun_domain_nameservers Data Source - porkbun"
 subcategory: ""
 description: |-
-  Reads the nameservers a domain is currently delegated to at the registry, without managing them. Useful for auditing a delegation before migrating it into Terraform, and for asserting the switch landed afterwards.
+  Reads the nameservers a domain is currently delegated to at the registry, without managing them. Useful for auditing a delegation before adopting it into Terraform, or for checking that a switch landed.
 ---
 
 # porkbun_domain_nameservers (Data Source)
 
-Reads the nameservers a domain is currently delegated to at the registry, without managing them. Useful for auditing a delegation before migrating it into Terraform, and for asserting the switch landed afterwards.
+Reads the nameservers a domain is currently delegated to at the registry, without managing them. Useful for auditing a delegation before adopting it into Terraform, or for checking that a switch landed.
 
 ## Example Usage
 
@@ -32,4 +32,4 @@ output "current_delegation" {
 
 ### Read-Only
 
-- `nameservers` (Set of String) The nameserver hostnames the registry lists, lowercased and without trailing dots.
+- `nameservers` (Set of String) The nameserver hostnames the registry lists, lowercased, sorted and without trailing dots.

@@ -3,18 +3,18 @@
 page_title: "porkbun_domain_nameservers Resource - porkbun"
 subcategory: ""
 description: |-
-  Sets the authoritative nameservers a domain is delegated to at the registry — the Terraform equivalent of editing a domain's nameservers in the Porkbun web UI.
-  ~> terraform destroy does not restore Porkbun's nameservers. A registered domain always has nameservers and Porkbun publishes no "reset to default" endpoint, so destroying this resource only stops Terraform managing the delegation: it removes the resource from state, makes no API call, and leaves the registry exactly as it is. A later apply adopts whatever is there rather than resetting it. See the resource documentation for the reasoning.
-  ~> Repointing a DNSSEC-signed domain will take it completely dark on validating resolvers. If a DS record exists at Porkbun (/dns/getDnssecRecords) and the new nameservers do not serve the matching signed zone, clear the DS record before or with the switch.
+  Sets the nameservers a domain is delegated to at the registry — the Terraform equivalent of editing a domain's nameservers in the Porkbun web UI.
+  ~> terraform destroy does not restore Porkbun's nameservers. Porkbun has no endpoint that unsets a delegation, so destroying this resource makes no API call: it drops the resource from state and leaves the domain delegated exactly where it is.
+  ~> Repointing a DNSSEC-signed domain takes it completely dark on validating resolvers. If a DS record exists at Porkbun (/dns/getDnssecRecords) and the new nameservers do not serve the matching signed zone, clear the DS record before or with the switch.
 ---
 
 # porkbun_domain_nameservers (Resource)
 
-Sets the authoritative nameservers a domain is delegated to at the registry — the Terraform equivalent of editing a domain's nameservers in the Porkbun web UI.
+Sets the nameservers a domain is delegated to at the registry — the Terraform equivalent of editing a domain's nameservers in the Porkbun web UI.
 
-~> **`terraform destroy` does not restore Porkbun's nameservers.** A registered domain always has nameservers and Porkbun publishes no "reset to default" endpoint, so destroying this resource only stops Terraform managing the delegation: it removes the resource from state, makes no API call, and leaves the registry exactly as it is. A later `apply` adopts whatever is there rather than resetting it. See the resource documentation for the reasoning.
+~> **`terraform destroy` does not restore Porkbun's nameservers.** Porkbun has no endpoint that unsets a delegation, so destroying this resource makes no API call: it drops the resource from state and leaves the domain delegated exactly where it is.
 
-~> Repointing a DNSSEC-signed domain will take it **completely dark** on validating resolvers. If a DS record exists at Porkbun (`/dns/getDnssecRecords`) and the new nameservers do not serve the matching signed zone, clear the DS record before or with the switch.
+~> Repointing a DNSSEC-signed domain takes it **completely dark** on validating resolvers. If a DS record exists at Porkbun (`/dns/getDnssecRecords`) and the new nameservers do not serve the matching signed zone, clear the DS record before or with the switch.
 
 ## Example Usage
 
@@ -44,12 +44,12 @@ resource "porkbun_domain_nameservers" "delegation" {
 
 ### Required
 
-- `domain` (String) The domain whose registry nameservers are managed, e.g. `example.com`. Must be registered in the authenticated Porkbun account and opted in to API access. Must be written in lowercase and without a trailing dot: this attribute forces replacement and is compared literally, so `Example.com` and `example.com` would be two resources fighting over one delegation.
-- `nameservers` (Set of String) The set of nameserver hostnames to delegate to, e.g. the `name_servers` output of a `google_dns_managed_zone`. Hostnames are compared case-insensitively and with any trailing dot removed, and order is ignored: an NS RRset is unordered (RFC 1034/2181) and registries return it in whatever order they like.
+- `domain` (String) The domain to delegate, e.g. `example.com`. Must be in the authenticated Porkbun account with API access enabled for it. Must be lowercase with no trailing dot: the value is compared literally and forces replacement, so `Example.com` and `example.com` would be two resources fighting over one delegation.
+- `nameservers` (Set of String) The nameserver hostnames to delegate to, e.g. the `name_servers` output of a `google_dns_managed_zone`. Case, trailing dots and ordering are ignored, so another provider's output can be passed straight through. Between 2 and 13 distinct hostnames are required, counted after duplicate spellings collapse.
 
 ### Read-Only
 
-- `id` (String) The domain name. Present for Terraform's benefit; equal to `domain`.
+- `id` (String) The domain name. Always equal to `domain`.
 
 ## Import
 

@@ -9,8 +9,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
-// testAccProtoV6ProviderFactories wires the in-process provider into the
-// acceptance test harness.
 var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
 	"porkbun": providerserver.NewProtocol6WithError(New("test")()),
 }
