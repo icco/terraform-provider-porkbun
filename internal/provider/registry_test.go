@@ -59,6 +59,7 @@ func TestRegisteredSurfaces(t *testing.T) {
 		"porkbun_domain_availability",
 		"porkbun_domain_nameservers",
 		"porkbun_domains",
+		"porkbun_ip",
 		"porkbun_marketplace_listings",
 		"porkbun_pricing",
 		"porkbun_ssl_bundle",
