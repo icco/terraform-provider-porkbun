@@ -16,6 +16,27 @@ import (
 // production, so the client refuses.
 var ErrNoNameservers = errors.New("refusing to send an empty nameserver list to porkbun: /domain/updateNs behaviour for ns:[] is undocumented and could de-delegate the domain")
 
+// MinNameservers and MaxNameservers bound a workable delegation. Every
+// registry requires at least two authoritative nameservers, and Porkbun's
+// own UI will not save fewer.
+const (
+	MinNameservers = 2
+	MaxNameservers = 13
+)
+
+// ErrTooFewNameservers guards the floor after normalization rather than
+// before it.
+//
+// The resource schema enforces a minimum of two elements, but it counts the
+// strings as configured, and NormalizeNameservers folds case, strips
+// trailing dots and de-duplicates. ["ns1.example.com", "ns1.example.com."]
+// is two distinct strings and one nameserver, so a config that satisfies the
+// schema can still put a single-nameserver delegation on the wire. That
+// leaves a domain one outage away from dark, and — because both sides
+// normalize before comparing — it never shows up as drift. The floor
+// therefore lives where the payload is built.
+var ErrTooFewNameservers = errors.New("refusing to send fewer than two distinct nameservers to porkbun: a single-nameserver delegation has no redundancy")
+
 // NormalizeNameserver lowercases a nameserver hostname and strips the root
 // label's trailing dot.
 //
@@ -87,6 +108,10 @@ func (c *Client) UpdateNameservers(ctx context.Context, domain string, ns []stri
 	normalized := NormalizeNameservers(ns)
 	if len(normalized) == 0 {
 		return fmt.Errorf("updating nameservers for %s: %w", domain, ErrNoNameservers)
+	}
+	if len(normalized) < MinNameservers {
+		return fmt.Errorf("updating nameservers for %s: %d input(s) collapsed to %v: %w",
+			domain, len(ns), normalized, ErrTooFewNameservers)
 	}
 	body := map[string]any{"ns": normalized}
 	return c.post(ctx, "domain/updateNs/"+escapePath(domain), body, nil)

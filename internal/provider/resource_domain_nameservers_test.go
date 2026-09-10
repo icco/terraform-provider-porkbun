@@ -207,6 +207,111 @@ func TestAccDomainNameserversTooFew(t *testing.T) {
 	})
 }
 
+// TestAccDomainNameserversStaleReadBack covers the registry not yet showing
+// the delegation that was just written.
+//
+// /domain/getNs reads live from the registry and propagation is not
+// synchronous, so the read-back immediately after updateNs can still return
+// the previous set. `nameservers` is Required, so if the provider stored
+// that stale answer Terraform core would abort the apply with "Provider
+// produced inconsistent result after apply … This is a bug in the provider"
+// — on a change that in fact succeeded. The apply must complete, state must
+// hold the configured value, and the following plan must be empty once the
+// registry catches up.
+func TestAccDomainNameserversStaleReadBack(t *testing.T) {
+	fake, url := newFakeAPI(t)
+	fake.seedDomain("laggy.quest", "curitiba.ns.porkbun.com", "fortaleza.ns.porkbun.com")
+
+	cloudDNS := []string{
+		"ns-cloud-a1.googledomains.com.",
+		"ns-cloud-a2.googledomains.com.",
+	}
+	config := nameserversConfig(url, "laggy.quest", cloudDNS)
+
+	// One getNs after the write still reports the old delegation.
+	fake.serveStaleReads(1)
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				ConfigStateChecks: []statecheck.StateCheck{
+					// The configured spelling, not the registry's stale answer.
+					statecheck.ExpectKnownValue("porkbun_domain_nameservers.test",
+						tfjsonpath.New("nameservers"), knownvalue.SetExact([]knownvalue.Check{
+							knownvalue.StringExact("ns-cloud-a1.googledomains.com."),
+							knownvalue.StringExact("ns-cloud-a2.googledomains.com."),
+						})),
+				},
+			},
+			{
+				Config: config,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
+			},
+		},
+	})
+
+	if got := fake.currentNameservers("laggy.quest"); !reflect.DeepEqual(got, []string{
+		"ns-cloud-a1.googledomains.com", "ns-cloud-a2.googledomains.com",
+	}) {
+		t.Errorf("registry holds %v, want the applied delegation", got)
+	}
+}
+
+// TestAccDomainNameserversCollapsingDuplicates covers a config that passes
+// the element-count validator and still delegates to one nameserver.
+//
+// Two spellings of one hostname are two strings, so setvalidator.SizeBetween
+// is satisfied; NormalizeNameservers folds them to one before the payload is
+// built. Nothing downstream would notice — Read normalizes both sides, so
+// two-in-state against one-at-the-registry compares equal forever.
+func TestAccDomainNameserversCollapsingDuplicates(t *testing.T) {
+	fake, url := newFakeAPI(t)
+	fake.seedDomain("dupe.quest", "curitiba.ns.porkbun.com", "fortaleza.ns.porkbun.com")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{{
+			Config:      nameserversConfig(url, "dupe.quest", []string{"ns1.example.com", "NS1.example.com."}),
+			ExpectError: regexp.MustCompile(`Too few distinct nameservers`),
+		}},
+	})
+
+	// The delegation must be untouched: the config never reached updateNs.
+	if got := fake.currentNameservers("dupe.quest"); !reflect.DeepEqual(got, []string{
+		"curitiba.ns.porkbun.com", "fortaleza.ns.porkbun.com",
+	}) {
+		t.Errorf("registry was modified by a rejected config: %v", got)
+	}
+}
+
+// TestAccDomainNameserversRequiresCanonicalDomain covers `domain` being
+// compared literally while DNS names are case-insensitive.
+func TestAccDomainNameserversRequiresCanonicalDomain(t *testing.T) {
+	_, url := newFakeAPI(t)
+
+	for name, domain := range map[string]string{
+		"mixed case":   "Case.Quest",
+		"trailing dot": "case.quest.",
+	} {
+		t.Run(name, func(t *testing.T) {
+			resource.Test(t, resource.TestCase{
+				PreCheck:                 func() { testAccPreCheck(t) },
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Steps: []resource.TestStep{{
+					Config:      nameserversConfig(url, domain, []string{"a.example.com", "b.example.com"}),
+					ExpectError: regexp.MustCompile(`Domain is not in canonical form`),
+				}},
+			})
+		})
+	}
+}
+
 // TestAccDomainNameserversDataSource reads a delegation without managing it.
 func TestAccDomainNameserversDataSource(t *testing.T) {
 	fake, url := newFakeAPI(t)

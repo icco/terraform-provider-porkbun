@@ -177,3 +177,35 @@ func TestGetNameserversUsesGETAndNormalizes(t *testing.T) {
 		t.Errorf("GetNameservers() = %v, want %v", got, want)
 	}
 }
+
+// TestUpdateNameserversRefusesCollapsedDuplicates covers the gap between the
+// schema's element count and the number of nameservers that reach the wire.
+//
+// The resource validator counts configured strings; the payload is built
+// from NormalizeNameservers, which folds case, strips trailing dots and
+// de-duplicates. Two spellings of one hostname satisfy the validator and
+// would delegate the domain to a single nameserver.
+func TestUpdateNameserversRefusesCollapsedDuplicates(t *testing.T) {
+	t.Parallel()
+
+	called := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		called = true
+		_, _ = w.Write([]byte(`{"status":"SUCCESS"}`))
+	}))
+	defer srv.Close()
+
+	for _, in := range [][]string{
+		{"ns1.example.com", "ns1.example.com."},
+		{"NS1.EXAMPLE.COM.", " ns1.example.com "},
+		{"ns1.example.com", ""},
+	} {
+		err := testClient(t, srv.URL).UpdateNameservers(context.Background(), "example.com", in)
+		if !errors.Is(err, ErrTooFewNameservers) {
+			t.Errorf("UpdateNameservers(%v) error = %v, want ErrTooFewNameservers", in, err)
+		}
+	}
+	if called {
+		t.Error("a collapsed nameserver list reached the API")
+	}
+}

@@ -29,7 +29,12 @@ func (m suppressNameserverRespelling) MarkdownDescription(ctx context.Context) s
 }
 
 func (m suppressNameserverRespelling) PlanModifySet(ctx context.Context, req planmodifier.SetRequest, resp *planmodifier.SetResponse) {
-	if req.StateValue.IsNull() || req.PlanValue.IsNull() || req.PlanValue.IsUnknown() {
+	// setIsFullyKnown, not IsUnknown: a known set can still hold an unknown
+	// element (a hand-assembled list mixing literals with a computed value),
+	// and ElementsAs with allowUnhandled=false turns that into an
+	// "unhandled unknown value" error at plan time. There is nothing to
+	// compare until apply anyway.
+	if !setIsFullyKnown(req.StateValue) || !setIsFullyKnown(req.PlanValue) {
 		return
 	}
 

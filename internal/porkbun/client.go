@@ -193,14 +193,24 @@ func ErrorCode(err error) string {
 
 // IsNotFound reports whether err says the domain or record does not exist.
 // Terraform Read implementations use it to drop the resource from state
-// instead of failing the whole refresh.
+// instead of failing the whole refresh, so it is deliberately narrow: it
+// matches only Porkbun error codes that can mean nothing else.
+//
+// In particular it does not match on HTTP 404 alone. A 404 is also what a
+// misconfigured base_url, an intercepting proxy or a future path rename
+// produces, and treating those as "the domain is gone" would silently
+// RemoveResource every managed domain on a single typo — a refresh that
+// looks like it succeeded followed by a plan proposing to create everything.
+// A hard error is noisy but truthful.
+//
+// It also does not match INVALID_DOMAIN. The v3 spec defines that code as
+// "Domain parameter is invalid or not in your account", so it is equally the
+// answer to a malformed domain; DOMAIN_NOT_FOUND is the unambiguous
+// "not in this account" code. See apiErrorDiagnostic for the guidance the
+// provider renders instead.
 func IsNotFound(err error) bool {
 	switch ErrorCode(err) {
-	case "DOMAIN_NOT_FOUND", "INVALID_DOMAIN", "RECORD_NOT_FOUND", "NOT_FOUND":
-		return true
-	}
-	var apiErr *Error
-	if as(err, &apiErr) && apiErr.HTTPStatus == http.StatusNotFound {
+	case "DOMAIN_NOT_FOUND", "RECORD_NOT_FOUND", "INVALID_RECORD_ID":
 		return true
 	}
 	return false

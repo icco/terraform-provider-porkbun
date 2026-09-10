@@ -44,7 +44,7 @@ resource "porkbun_domain_nameservers" "delegation" {
 
 ### Required
 
-- `domain` (String) The domain whose registry nameservers are managed, e.g. `example.com`. Must be registered in the authenticated Porkbun account and opted in to API access.
+- `domain` (String) The domain whose registry nameservers are managed, e.g. `example.com`. Must be registered in the authenticated Porkbun account and opted in to API access. Must be written in lowercase and without a trailing dot: this attribute forces replacement and is compared literally, so `Example.com` and `example.com` would be two resources fighting over one delegation.
 - `nameservers` (Set of String) The set of nameserver hostnames to delegate to, e.g. the `name_servers` output of a `google_dns_managed_zone`. Hostnames are compared case-insensitively and with any trailing dot removed, and order is ignored: an NS RRset is unordered (RFC 1034/2181) and registries return it in whatever order they like.
 
 ### Read-Only

@@ -22,10 +22,11 @@ import (
 )
 
 var (
-	_ resource.Resource                = (*domainNameserversResource)(nil)
-	_ resource.ResourceWithConfigure   = (*domainNameserversResource)(nil)
-	_ resource.ResourceWithImportState = (*domainNameserversResource)(nil)
-	_ resource.ResourceWithIdentity    = (*domainNameserversResource)(nil)
+	_ resource.Resource                   = (*domainNameserversResource)(nil)
+	_ resource.ResourceWithConfigure      = (*domainNameserversResource)(nil)
+	_ resource.ResourceWithImportState    = (*domainNameserversResource)(nil)
+	_ resource.ResourceWithIdentity       = (*domainNameserversResource)(nil)
+	_ resource.ResourceWithValidateConfig = (*domainNameserversResource)(nil)
 )
 
 // NewDomainNameserversResource manages registry nameserver delegation.
@@ -69,9 +70,12 @@ func (r *domainNameserversResource) Schema(_ context.Context, _ resource.SchemaR
 			},
 			"domain": schema.StringAttribute{
 				MarkdownDescription: "The domain whose registry nameservers are managed, e.g. `example.com`. " +
-					"Must be registered in the authenticated Porkbun account and opted in to API access.",
+					"Must be registered in the authenticated Porkbun account and opted in to API access. " +
+					"Must be written in lowercase and without a trailing dot: this attribute forces replacement and " +
+					"is compared literally, so `Example.com` and `example.com` would be two resources fighting over " +
+					"one delegation.",
 				Required:      true,
-				Validators:    []validator.String{stringvalidator.LengthAtLeast(3)},
+				Validators:    []validator.String{stringvalidator.LengthAtLeast(3), canonicalDomain{}},
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"nameservers": schema.SetAttribute{
@@ -82,7 +86,7 @@ func (r *domainNameserversResource) Schema(_ context.Context, _ resource.SchemaR
 				Required:    true,
 				ElementType: types.StringType,
 				Validators: []validator.Set{
-					setvalidator.SizeBetween(2, 13),
+					setvalidator.SizeBetween(porkbun.MinNameservers, porkbun.MaxNameservers),
 					setvalidator.ValueStringsAre(stringvalidator.LengthAtLeast(3)),
 				},
 				PlanModifiers: []planmodifier.Set{suppressNameserverRespelling{}},
@@ -148,21 +152,104 @@ func (r *domainNameserversResource) write(
 
 	// updateNs answers with a bare {"status":"SUCCESS"}; it does not echo what
 	// was applied. Read the delegation back rather than assuming the plan
-	// landed verbatim.
-	applied, err := r.client.GetNameservers(ctx, domain)
-	if err != nil {
-		diags.Append(apiErrorDiagnostic(fmt.Sprintf("Nameservers for %s were updated but could not be read back", domain), err))
-		return
+	// landed verbatim — but treat the answer as a report, not as the state.
+	//
+	// `nameservers` is Required, so Terraform core requires the state this
+	// function writes to equal the planned value exactly. /domain/getNs reads
+	// live from the registry and registry propagation is not synchronous, so
+	// the first read after a write can legitimately still return the previous
+	// set. Storing that stale answer would make core abort the apply with
+	// "Provider produced inconsistent result after apply … This is a bug in
+	// the provider", which is both untrue and unrecoverable without a second
+	// apply. So the planned value goes into state and any disagreement is
+	// reported as a warning; the next refresh reads the registry again and
+	// shows real, persistent divergence as ordinary drift.
+	switch applied, err := r.client.GetNameservers(ctx, domain); {
+	case err != nil:
+		tflog.Warn(ctx, "could not read back nameserver delegation", map[string]any{"domain": domain, "error": err.Error()})
+		diags.AddWarning(
+			fmt.Sprintf("Nameservers for %s were updated but could not be read back", domain),
+			"Porkbun accepted the change, so the registry has it. Verifying it failed:\n\n"+err.Error()+
+				"\n\nThe configured nameservers have been written to state, so nothing needs importing. "+
+				"Run `terraform plan` to refresh from the registry and confirm.",
+		)
+	case !porkbun.SameNameserverSet(applied, want):
+		tflog.Warn(ctx, "registry disagrees with the applied nameserver delegation",
+			map[string]any{"domain": domain, "sent": porkbun.NormalizeNameservers(want), "registry": applied})
+		diags.AddWarning(
+			fmt.Sprintf("Nameservers for %s do not yet match what was sent", domain),
+			fmt.Sprintf("Sent %v; /domain/getNs currently reports %v.\n\n", porkbun.NormalizeNameservers(want), applied)+
+				"getNs reads live from the registry, so this is usually propagation lag and resolves on its own. "+
+				"If it persists, the registry rejected or rewrote part of the set — the next `terraform plan` will "+
+				"show it as drift.",
+		)
+	default:
+		tflog.Info(ctx, "applied nameserver delegation", map[string]any{"domain": domain, "nameservers": applied})
 	}
-	tflog.Info(ctx, "applied nameserver delegation", map[string]any{"domain": domain, "nameservers": applied})
 
-	model, sdiags := newNameserversState(ctx, domain, applied, want)
-	diags.Append(sdiags...)
-	if diags.HasError() {
-		return
+	// plan.Nameservers rather than a rebuilt set: it is the planned value
+	// itself, so it cannot fail core's consistency check.
+	model := domainNameserversModel{
+		ID:          types.StringValue(domain),
+		Domain:      types.StringValue(domain),
+		Nameservers: plan.Nameservers,
 	}
 	diags.Append(state.Set(ctx, &model)...)
 	diags.Append(setNameserversIdentity(ctx, identity, domain)...)
+}
+
+// ValidateConfig rejects a nameserver set that collapses below the floor.
+//
+// setvalidator.SizeBetween counts configured strings, but the wire payload is
+// built from NormalizeNameservers, which folds case, strips trailing dots and
+// de-duplicates. ["ns1.example.com", "ns1.example.com."] passes the size
+// validator and delegates to one nameserver. Catching it here reports the
+// real problem at plan time; porkbun.UpdateNameservers refuses it again at
+// the last moment for anything that reaches the client by another route.
+func (r *domainNameserversResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var config domainNameserversModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// An unknown set, or one holding an unknown element, is the documented
+	// google_dns_managed_zone.x.name_servers case: there is nothing to count
+	// until apply.
+	if !setIsFullyKnown(config.Nameservers) {
+		return
+	}
+
+	var ns []string
+	resp.Diagnostics.Append(config.Nameservers.ElementsAs(ctx, &ns, false)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if normalized := porkbun.NormalizeNameservers(ns); len(normalized) < porkbun.MinNameservers {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("nameservers"),
+			"Too few distinct nameservers",
+			fmt.Sprintf("%d configured nameservers collapse to %d distinct hostname(s): %v.\n\n", len(ns), len(normalized), normalized)+
+				"Nameservers are compared with case folded, any trailing dot removed and duplicates dropped, so "+
+				"entries such as \"ns1.example.com\" and \"ns1.example.com.\" are the same nameserver. A delegation "+
+				fmt.Sprintf("needs at least %d distinct hostnames.", porkbun.MinNameservers),
+		)
+	}
+}
+
+// setIsFullyKnown reports whether a set value and every one of its elements
+// is known and non-null, i.e. whether ElementsAs can convert it.
+func setIsFullyKnown(v types.Set) bool {
+	if v.IsNull() || v.IsUnknown() {
+		return false
+	}
+	for _, e := range v.Elements() {
+		if e.IsNull() || e.IsUnknown() {
+			return false
+		}
+	}
+	return true
 }
 
 func (r *domainNameserversResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {

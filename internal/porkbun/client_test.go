@@ -3,6 +3,7 @@ package porkbun
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -72,8 +73,13 @@ func TestErrorOnHTTP400(t *testing.T) {
 	if apiErr.NextAction == nil || apiErr.NextAction.Type != "fix_request" {
 		t.Errorf("NextAction = %+v", apiErr.NextAction)
 	}
-	if !IsNotFound(err) {
-		t.Error("INVALID_DOMAIN should read as not-found so Read can drop the resource")
+	// INVALID_DOMAIN must NOT read as not-found: the v3 spec defines it as
+	// "Domain parameter is invalid or not in your account", so a typo in the
+	// domain attribute produces it too. Silently dropping the resource would
+	// turn a malformed config into a refresh that looks like it worked and a
+	// plan proposing to create everything.
+	if IsNotFound(err) {
+		t.Error("INVALID_DOMAIN is ambiguous and must not read as not-found")
 	}
 	if apiErr.Retryable() {
 		t.Error("fix_request is not retryable")
@@ -318,4 +324,30 @@ func indexOf(haystack, needle string) int {
 		}
 	}
 	return -1
+}
+
+// TestIsNotFoundIsNarrow pins which errors are allowed to make a Read drop a
+// resource from state. A false positive here silently removes every managed
+// domain; a false negative is only a noisy error.
+func TestIsNotFoundIsNarrow(t *testing.T) {
+	t.Parallel()
+
+	for name, tc := range map[string]struct {
+		err  error
+		want bool
+	}{
+		"domain not found":      {&Error{HTTPStatus: 400, Code: "DOMAIN_NOT_FOUND"}, true},
+		"record not found":      {&Error{HTTPStatus: 400, Code: "RECORD_NOT_FOUND"}, true},
+		"invalid record id":     {&Error{HTTPStatus: 400, Code: "INVALID_RECORD_ID"}, true},
+		"ambiguous domain":      {&Error{HTTPStatus: 400, Code: "INVALID_DOMAIN"}, false},
+		"routing 404, no code":  {&Error{HTTPStatus: 404}, false},
+		"unknown endpoint 404":  {&Error{HTTPStatus: 404, Code: "NOT_FOUND"}, false},
+		"404 on a bad base_url": {&Error{HTTPStatus: 404, Message: "<html>404 Not Found</html>"}, false},
+		"credentials":           {&Error{HTTPStatus: 403, Code: "INVALID_API_KEYS_001"}, false},
+		"not a porkbun error":   {errors.New("dial tcp: connection refused"), false},
+	} {
+		if got := IsNotFound(tc.err); got != tc.want {
+			t.Errorf("%s: IsNotFound = %v, want %v", name, got, tc.want)
+		}
+	}
 }

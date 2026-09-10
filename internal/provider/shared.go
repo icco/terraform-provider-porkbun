@@ -45,9 +45,12 @@ func clientFromDataSourceConfigure(_ context.Context, req datasource.ConfigureRe
 }
 
 // apiErrorDiagnostic renders a Porkbun error with its machine-readable code
-// front and centre. DOMAIN_NOT_ALLOWED and IP_NOT_ALLOWED are key-scoping
-// problems, not configuration problems, and reading them as configuration
-// problems wastes a lot of time on a wide rollout.
+// front and centre, and appends the remediation that code actually calls for.
+//
+// Every code branched on here is one the Porkbun v3 spec documents; guessing
+// at plausible-looking names (INVALID_API_KEY, UNAUTHORIZED) produces
+// remediation that never renders, which is worse than none because it reads
+// as covered.
 func apiErrorDiagnostic(summary string, err error) diag.Diagnostic {
 	detail := err.Error()
 	switch porkbun.ErrorCode(err) {
@@ -58,9 +61,21 @@ func apiErrorDiagnostic(summary string, err error) diag.Diagnostic {
 	case "IP_NOT_ALLOWED":
 		detail += "\n\nThis API key has an IP allowlist that does not include the address Terraform is calling from. " +
 			"Runner IPs are not stable; prefer scoping the key by domain rather than by IP."
-	case "INVALID_API_KEY", "UNAUTHORIZED":
-		detail += "\n\nCheck api_key/secret_key (PORKBUN_API_KEY / PORKBUN_SECRET_KEY). API access must also be " +
-			"enabled for the account at https://porkbun.com/account/api."
+	case "INVALID_API_KEYS_001", "INVALID_API_KEYS_002", "API_KEY_REQUIRED", "MISSING_SECRETAPIKEY",
+		"INVALID_TOKEN", "INVALID_USER":
+		detail += "\n\nCheck api_key/secret_key (PORKBUN_API_KEY / PORKBUN_SECRET_KEY). The secret is the " +
+			"`secretapikey` value, not the key itself. API access must also be enabled for the account at " +
+			"https://porkbun.com/account/api."
+	case "INVALID_DOMAIN":
+		detail += "\n\nPorkbun uses INVALID_DOMAIN for both a malformed domain and one that is not in this " +
+			"account, so check the spelling of `domain` first. List the domains this key can see with the " +
+			"`porkbun_domains` data source (/domain/listAll)."
+	case "DOMAIN_NOT_FOUND":
+		detail += "\n\nThis domain is not in the authenticated Porkbun account. List the domains this key can " +
+			"see with the `porkbun_domains` data source (/domain/listAll)."
+	case "RATE_LIMIT_EXCEEDED":
+		detail += "\n\nPorkbun rate-limited the request and the provider's retry budget was exhausted. Wait the " +
+			"seconds given in the Retry-After header, then apply again; -parallelism=1 helps on a wide rollout."
 	}
 	return diag.NewErrorDiagnostic(summary, detail)
 }

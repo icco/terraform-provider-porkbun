@@ -26,6 +26,15 @@ type fakeAPI struct {
 
 	// nameservers maps domain to the normalized set last written.
 	nameservers map[string][]string
+	// previousNameservers holds the set a domain had before the most recent
+	// updateNs, so getNs can replay it.
+	previousNameservers map[string][]string
+	// staleReads is how many further getNs calls answer with the previous
+	// set instead of the current one. /domain/getNs "reads live from the
+	// registry" and registry propagation is not synchronous, so a read
+	// immediately after a write can legitimately still show the old
+	// delegation. A synchronous fake can never exercise that path.
+	staleReads int
 	// records maps domain to record id to record.
 	records map[string]map[string]*fakeRecord
 	nextID  int
@@ -48,9 +57,10 @@ type fakeRecord struct {
 func newFakeAPI(t *testing.T) (*fakeAPI, string) {
 	t.Helper()
 	f := &fakeAPI{
-		nameservers: map[string][]string{},
-		records:     map[string]map[string]*fakeRecord{},
-		nextID:      100000,
+		nameservers:         map[string][]string{},
+		previousNameservers: map[string][]string{},
+		records:             map[string]map[string]*fakeRecord{},
+		nextID:              100000,
 	}
 	srv := httptest.NewServer(f)
 	t.Cleanup(srv.Close)
@@ -87,6 +97,14 @@ func (f *fakeAPI) churnNameservers(domain string) {
 	f.nameservers[domain] = ns
 }
 
+// serveStaleReads makes the next n getNs calls answer with the delegation as
+// it was before the most recent updateNs.
+func (f *fakeAPI) serveStaleReads(n int) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.staleReads = n
+}
+
 func (f *fakeAPI) forgetDomain(domain string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -95,7 +113,7 @@ func (f *fakeAPI) forgetDomain(domain string) {
 
 func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("X-API-Key") == "" || r.Header.Get("X-Secret-API-Key") == "" {
-		writeErr(w, http.StatusBadRequest, "INVALID_API_KEY", "Missing API credentials.")
+		writeErr(w, http.StatusBadRequest, "INVALID_API_KEYS_001", "Missing API credentials.")
 		return
 	}
 
@@ -147,6 +165,12 @@ func (f *fakeAPI) getNs(w http.ResponseWriter, domain string) {
 		writeErr(w, http.StatusBadRequest, "DOMAIN_NOT_FOUND", "Domain is not in the account.")
 		return
 	}
+	if f.staleReads > 0 {
+		f.staleReads--
+		if prev, had := f.previousNameservers[domain]; had {
+			ns = prev
+		}
+	}
 	writeJSON(w, map[string]any{"status": "SUCCESS", "ns": scramble(ns)})
 }
 
@@ -183,6 +207,7 @@ func (f *fakeAPI) updateNs(w http.ResponseWriter, r *http.Request, domain string
 		normalized = append(normalized, strings.ToLower(strings.TrimSuffix(n, ".")))
 	}
 	sort.Strings(normalized)
+	f.previousNameservers[domain] = f.nameservers[domain]
 	f.nameservers[domain] = normalized
 	// updateNs answers with a bare success: it never echoes what was applied.
 	writeJSON(w, map[string]any{"status": "SUCCESS"})
