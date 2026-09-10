@@ -77,3 +77,21 @@ func apiErrorDiagnostic(summary string, err error) diag.Diagnostic {
 	}
 	return diag.NewErrorDiagnostic(summary, detail)
 }
+
+// withWarnings installs a Porkbun warning collector on ctx.
+//
+// Pair it with appendWarnings at the end of a CRUD method. Porkbun attaches
+// advisories to successful responses that Terraform would otherwise swallow
+// — above all that a /dns/* write against a Cloudflare-moved domain changed
+// the Porkbun zone but nothing that resolves.
+func withWarnings(ctx context.Context) (context.Context, *porkbun.WarningCollector) {
+	return porkbun.WithWarningCollector(ctx)
+}
+
+// appendWarnings turns the collected API warnings into Terraform warning
+// diagnostics. It is a no-op when nothing was collected.
+func appendWarnings(diags *diag.Diagnostics, wc *porkbun.WarningCollector) {
+	for _, w := range wc.Warnings() {
+		diags.AddWarning("Porkbun API warning", w.String())
+	}
+}

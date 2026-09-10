@@ -148,6 +148,9 @@ func (r *dnsRecordResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 
+	ctx, wc := withWarnings(ctx)
+	defer appendWarnings(&resp.Diagnostics, wc)
+
 	domain := plan.Domain.ValueString()
 	id, existingID, err := r.client.CreateRecord(ctx, domain, recordInput(plan))
 	if err != nil {
@@ -170,6 +173,9 @@ func (r *dnsRecordResource) Read(ctx context.Context, req resource.ReadRequest, 
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	ctx, wc := withWarnings(ctx)
+	defer appendWarnings(&resp.Diagnostics, wc)
 
 	domain := state.Domain.ValueString()
 	id := state.ID.ValueString()
@@ -207,6 +213,9 @@ func (r *dnsRecordResource) Update(ctx context.Context, req resource.UpdateReque
 		return
 	}
 
+	ctx, wc := withWarnings(ctx)
+	defer appendWarnings(&resp.Diagnostics, wc)
+
 	domain := plan.Domain.ValueString()
 	id := state.ID.ValueString()
 
@@ -226,6 +235,9 @@ func (r *dnsRecordResource) Delete(ctx context.Context, req resource.DeleteReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	ctx, wc := withWarnings(ctx)
+	defer appendWarnings(&resp.Diagnostics, wc)
 
 	domain := state.Domain.ValueString()
 	id := state.ID.ValueString()
