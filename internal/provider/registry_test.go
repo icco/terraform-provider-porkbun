@@ -54,6 +54,7 @@ func TestRegisteredSurfaces(t *testing.T) {
 	}
 	wantDataSources := []string{
 		"porkbun_account_balance",
+		"porkbun_api_settings",
 		"porkbun_domain",
 		"porkbun_domain_nameservers",
 		"porkbun_domains",
