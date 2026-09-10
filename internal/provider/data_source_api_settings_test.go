@@ -57,12 +57,22 @@ func TestAccAPISettingsDataSource(t *testing.T) {
 			Config: providerConfig(url) + `
 data "porkbun_api_settings" "current" {}
 
-# The shape of the guard this data source exists for.
-output "monthly_headroom_cents" {
-  value = data.porkbun_api_settings.current.monthly_spend_limit == null ? -1 : (
+# The guard the documented example shows, applied for real so that the
+# example's HCL is exercised and not merely gofmt-clean.
+output "monthly_api_headroom_cents" {
+  value = (
+    data.porkbun_api_settings.current.monthly_spend_limit == null ? null :
     data.porkbun_api_settings.current.monthly_spend_limit -
     data.porkbun_api_settings.current.monthly_spend
   )
+
+  precondition {
+    condition = (
+      data.porkbun_api_settings.current.monthly_spend_limit == null ||
+      data.porkbun_api_settings.current.monthly_spend < data.porkbun_api_settings.current.monthly_spend_limit
+    )
+    error_message = "This Porkbun account has already spent its monthly API budget."
+  }
 }
 `,
 			ConfigStateChecks: []statecheck.StateCheck{
