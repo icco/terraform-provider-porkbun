@@ -34,11 +34,11 @@ resource "porkbun_dns_record" "www_copy" {
   type    = data.porkbun_dns_record.legacy_www.type
   content = data.porkbun_dns_record.legacy_www.content
 
-  # ttl, prio and notes are null on a record that carries none, and none of
-  # these attributes accept null, so each needs a floor.
-  ttl   = coalesce(data.porkbun_dns_record.legacy_www.ttl, 600)
-  prio  = coalesce(data.porkbun_dns_record.legacy_www.prio, 0)
-  notes = coalesce(data.porkbun_dns_record.legacy_www.notes, "")
+  # ttl and prio are null on a record that carries neither, and the resource
+  # attributes do not accept null, so each needs a floor. `notes` is left
+  # unset: coalesce() rejects "" as a fallback, and the resource defaults it.
+  ttl  = coalesce(data.porkbun_dns_record.legacy_www.ttl, 600)
+  prio = coalesce(data.porkbun_dns_record.legacy_www.prio, 0)
 }
 ```
 

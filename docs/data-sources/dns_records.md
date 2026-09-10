@@ -27,8 +27,10 @@ data "porkbun_dns_records" "mx" {
   type   = "MX"
 }
 
+# prio is null on any record that has no priority, and a null cannot go into
+# a string template, so it needs a floor even where MX makes one unlikely.
 output "mx_hosts" {
-  value = [for r in data.porkbun_dns_records.mx.records : "${r.prio} ${r.content}"]
+  value = [for r in data.porkbun_dns_records.mx.records : "${coalesce(r.prio, 0)} ${r.content}"]
 }
 
 # cloudflare_enabled says whether this zone is still the one that answers
