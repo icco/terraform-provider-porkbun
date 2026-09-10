@@ -69,9 +69,4 @@ changelog:
       order: 999
   filters:
     exclude:
-      - '^docs:'
-      - '^test:'
-      - '^chore:'
-      - '^ci:'
-      - '^refactor:'
       - '^Merge (pull request|branch|remote-tracking)'
