@@ -50,6 +50,19 @@ func newHostingPlansFake(t *testing.T) string {
 					"trialDays": nil,
 					"name":      "Cloud for WordPress Monthly",
 				},
+				map[string]any{
+					"product":        "secureStaticHosting",
+					"plan":           "yearly",
+					"sku":            "PIXIESECURESTATICY2",
+					"interval":       "year",
+					"price":          3000,
+					"priceFormatted": "$30.00",
+					"trialDays":      15,
+					"name":           "Secure Static Hosting Yearly",
+					// An empty bag is empty, not null: the plan has no
+					// listed features, which is not "we were told nothing".
+					"features": map[string]any{},
+				},
 			},
 		})
 	}))
@@ -81,9 +94,10 @@ data "porkbun_hosting_plans" "wordpress" {
 					tfjsonpath.New("skus"), knownvalue.SetExact([]knownvalue.Check{
 						knownvalue.StringExact("CLOUDWORDPRESSM1"),
 						knownvalue.StringExact("PIXIESECURESTATICM2"),
+						knownvalue.StringExact("PIXIESECURESTATICY2"),
 					})),
 				statecheck.ExpectKnownValue("data.porkbun_hosting_plans.all",
-					tfjsonpath.New("plans"), knownvalue.ListSizeExact(2)),
+					tfjsonpath.New("plans"), knownvalue.ListSizeExact(3)),
 				statecheck.ExpectKnownValue("data.porkbun_hosting_plans.all",
 					tfjsonpath.New("plans").AtSliceIndex(0).AtMapKey("sku"),
 					knownvalue.StringExact("CLOUDWORDPRESSM1")),
@@ -114,10 +128,17 @@ data "porkbun_hosting_plans" "wordpress" {
 						"ssl":       knownvalue.StringExact("true"),
 					})),
 
+				// An empty feature bag stays an empty map, distinct from the
+				// null above.
+				statecheck.ExpectKnownValue("data.porkbun_hosting_plans.all",
+					tfjsonpath.New("plans").AtSliceIndex(2).AtMapKey("features"),
+					knownvalue.MapSizeExact(0)),
+
 				// Both filters are case-insensitive and applied in-provider.
 				statecheck.ExpectKnownValue("data.porkbun_hosting_plans.static",
 					tfjsonpath.New("skus"), knownvalue.SetExact([]knownvalue.Check{
 						knownvalue.StringExact("PIXIESECURESTATICM2"),
+						knownvalue.StringExact("PIXIESECURESTATICY2"),
 					})),
 				statecheck.ExpectKnownValue("data.porkbun_hosting_plans.wordpress",
 					tfjsonpath.New("skus"), knownvalue.SetExact([]knownvalue.Check{

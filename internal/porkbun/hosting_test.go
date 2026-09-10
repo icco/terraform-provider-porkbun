@@ -11,14 +11,14 @@ import (
 	"time"
 )
 
-// mockBody fetches a mock endpoint's raw body.
+// hostingMockBody fetches a mock endpoint's raw body.
 //
 // /hosting/plans cannot go through the client: the mock renders the
 // envelope's `status` from the spec's untyped example, so hosting endpoints
 // answer `"status":"string"` and the client correctly rejects anything that
 // is not SUCCESS. The field names and value shapes below are still the real
 // contract, which is what this tier is for.
-func mockBody(t *testing.T, c *Client, path string) []byte {
+func hostingMockBody(t *testing.T, c *Client, path string) []byte {
 	t.Helper()
 
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, c.BaseURL()+"/"+path, nil)
@@ -49,7 +49,7 @@ func mockBody(t *testing.T, c *Client, path string) []byte {
 // decode agreeing with whatever the body said.
 func TestMockHostingPlans(t *testing.T) {
 	c := mockClient(t)
-	body := mockBody(t, c, "hosting/plans")
+	body := hostingMockBody(t, c, "hosting/plans")
 
 	var raw struct {
 		Plans []map[string]json.RawMessage `json:"plans"`
@@ -114,14 +114,16 @@ func TestMockHostingPlans(t *testing.T) {
 		t.Errorf("expected no plans for an impossible prefix, got %d", len(filtered))
 	}
 
-	// The full client path is still exercised, tolerantly: the only failure
-	// allowed is the mock's placeholder envelope. If Porkbun ever renders a
-	// real SUCCESS here, this starts passing outright rather than breaking.
+	// The full client path is still exercised, tolerantly: the one tolerated
+	// failure is a well-formed envelope whose status is not SUCCESS, which
+	// is the placeholder the mock renders here. The literal placeholder is
+	// deliberately not asserted — it is Porkbun's example data to change —
+	// and a mock fixed to answer SUCCESS passes outright.
 	_, err := c.ListHostingPlans(context.Background(), ListHostingPlansOptions{})
 	skipIfUnavailable(t, err)
 	if err != nil {
 		var apiErr *Error
-		if !as(err, &apiErr) || apiErr.Status != "string" {
+		if !as(err, &apiErr) || strings.EqualFold(apiErr.Status, "SUCCESS") {
 			t.Errorf("ListHostingPlans against the mock: %v", err)
 		}
 	}
