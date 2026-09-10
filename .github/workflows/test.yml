@@ -1,80 +1,90 @@
-# Terraform Provider testing workflow.
 name: Tests
 
-# This GitHub action runs your tests for each pull request and push.
-# Optionally, you can turn it on using a schedule for regular testing.
 on:
+  push:
+    branches: [main]
+    paths-ignore: ['README.md']
   pull_request:
-    paths-ignore:
-      - 'README.md'
+    paths-ignore: ['README.md']
 
-# Testing only needs permissions to read the repository contents.
 permissions:
   contents: read
 
 jobs:
-  # Ensure project builds before running testing matrix
   build:
     name: Build
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: 'go.mod'
           cache: true
       - run: go mod download
-      - run: go build -v .
+      - run: go build -v ./...
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+      - run: gofmt -l . | tee /dev/stderr | (! read)
+      - run: go vet ./...
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.13.2
 
   generate:
+    name: Docs are current
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: 'go.mod'
           cache: true
-      - run: go generate ./...
-      - name: git diff
+      # tfplugindocs shells out to `terraform fmt`, which is no longer
+      # preinstalled on ubuntu-latest runners.
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: '1.16.2'
+          terraform_wrapper: false
+      - run: make docs
+      - name: Check docs are committed
         run: |
           git diff --compact-summary --exit-code || \
-            (echo; echo "Unexpected difference in directories after code generation. Run 'go generate ./...' command and commit."; exit 1)
+            (echo; echo "docs/ is out of date. Run 'make docs' and commit the result."; exit 1)
 
-  # Run acceptance tests in a matrix with Terraform CLI versions
   test:
-    name: Terraform Provider Acceptance Tests
+    name: Acceptance (Terraform ${{ matrix.terraform }})
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     strategy:
       fail-fast: false
-      max-parallel: 2
       matrix:
-        terraform:
-          - '1.7.*'
-          - '1.8.*'
-          - '1.9.*'
+        terraform: ['1.14.*', '1.15.*', '1.16.*']
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: 'go.mod'
           cache: true
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_version: ${{ matrix.terraform }}
           terraform_wrapper: false
       - run: go mod download
-      - uses: nick-fields/retry@v2
-        env:
+      # No credentials and no live API: the client tests run against
+      # Porkbun's public /mock endpoint and the acceptance tests against an
+      # in-process fake, so this passes on pull requests from forks.
+      - env:
           TF_ACC: "1"
-          PORKBUN_API_KEY: ${{ secrets.PORKBUN_API_KEY }}
-          PORKBUN_SECRET_KEY: ${{ secrets.PORKBUN_SECRET_KEY }}
-          TF_VAR_api_key: ${{ secrets.PORKBUN_API_KEY }}
-          TF_VAR_secret_key: ${{ secrets.PORKBUN_SECRET_KEY }}
-        with:
-          timeout_minutes: 10
-          max_attempts: 5
-          shell: sh
-          command: go test -v -cover ./internal/provider/
+        run: go test -v -cover -timeout 30m ./...
