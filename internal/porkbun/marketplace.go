@@ -73,6 +73,14 @@ type MarketplaceListings struct {
 	// Filtered is the API's own report of whether it applied server-side
 	// filtering.
 	Filtered bool
+	// Count is the total the API reported for the query, which can exceed
+	// len(Listings).
+	Count int64
+	// Truncated reports that the read stopped on MaxResults rather than on
+	// the end of the catalog. Without it a capped read is indistinguishable
+	// from an exhaustive one, and "the marketplace has exactly 1000 domains
+	// matching" is a conclusion a caller would otherwise draw from a cap.
+	Truncated bool
 }
 
 // ListMarketplaceListings reads domains listed for sale on the Porkbun
@@ -129,6 +137,8 @@ func (c *Client) ListMarketplaceListings(ctx context.Context, opts ListMarketpla
 	for start := int64(0); ; {
 		want := maxResults - int64(len(out.Listings))
 		if want <= 0 {
+			// Stopped on the cap rather than on the end of the catalog.
+			out.Truncated = true
 			break
 		}
 
@@ -155,6 +165,7 @@ func (c *Client) ListMarketplaceListings(ctx context.Context, opts ListMarketpla
 			return nil, err
 		}
 		out.Filtered = page.Filtered
+		out.Count = int64(page.Count)
 		out.Listings = append(out.Listings, page.Domains...)
 
 		// A short page is the end. page.Filtered on a request that carried
@@ -172,6 +183,7 @@ func (c *Client) ListMarketplaceListings(ctx context.Context, opts ListMarketpla
 	// Filtered mode has no limit parameter, so it is capped after the fact.
 	if int64(len(out.Listings)) > maxResults {
 		out.Listings = out.Listings[:maxResults]
+		out.Truncated = true
 	}
 	return out, nil
 }

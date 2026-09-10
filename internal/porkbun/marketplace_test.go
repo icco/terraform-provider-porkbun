@@ -56,7 +56,7 @@ func TestListMarketplaceListingsPages(t *testing.T) {
 		if idx < len(pages) {
 			items = pages[idx]
 		}
-		fmt.Fprintf(w, `{"status":"SUCCESS","count":%d,"filtered":false,"domains":[%s]}`,
+		_, _ = fmt.Fprintf(w, `{"status":"SUCCESS","count":%d,"filtered":false,"domains":[%s]}`,
 			len(items), strings.Join(items, ","))
 	}))
 	defer srv.Close()
@@ -165,5 +165,60 @@ func TestListMarketplaceListingsRespectsMaxResults(t *testing.T) {
 	}
 	if calls != 2 {
 		t.Errorf("got %d calls, want 2 to fill a cap of 3 at page size 2", calls)
+	}
+}
+
+// A read that stops on the cap must say so. Without Truncated a caller
+// cannot tell a capped read from an exhaustive one, and "the marketplace
+// has exactly max_results matches" is the wrong conclusion it would
+// otherwise draw.
+func TestListMarketplaceListingsReportsTruncation(t *testing.T) {
+	t.Parallel()
+
+	// An endless catalog: every page is full, so only the cap stops it.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"status":"SUCCESS","count":9999,"filtered":false,"domains":[` +
+			`{"domain":"a.com","tld":"com","price":1},{"domain":"b.com","tld":"com","price":2}]}`))
+	}))
+	defer srv.Close()
+
+	res, err := testClient(t, srv.URL).ListMarketplaceListings(context.Background(),
+		ListMarketplaceListingsOptions{MaxResults: 4, pageSize: 2})
+	if err != nil {
+		t.Fatalf("ListMarketplaceListings: %v", err)
+	}
+	if !res.Truncated {
+		t.Error("Truncated is false after stopping on the cap")
+	}
+	if res.Count != 9999 {
+		t.Errorf("Count = %d, want the 9999 the API reported", res.Count)
+	}
+	if len(res.Listings) != 4 {
+		t.Errorf("got %d listings, want the cap of 4", len(res.Listings))
+	}
+}
+
+// The complement: a catalog that ends before the cap is not truncated.
+// Without this, Truncated could be hardcoded true and the test above would
+// still pass.
+func TestListMarketplaceListingsNotTruncatedWhenCatalogEnds(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"status":"SUCCESS","count":1,"filtered":false,"domains":[` +
+			`{"domain":"only.com","tld":"com","price":1}]}`))
+	}))
+	defer srv.Close()
+
+	res, err := testClient(t, srv.URL).ListMarketplaceListings(context.Background(),
+		ListMarketplaceListingsOptions{MaxResults: 50, pageSize: 10})
+	if err != nil {
+		t.Fatalf("ListMarketplaceListings: %v", err)
+	}
+	if res.Truncated {
+		t.Error("Truncated is true for a catalog that ended on its own")
+	}
+	if len(res.Listings) != 1 {
+		t.Errorf("got %d listings, want 1", len(res.Listings))
 	}
 }

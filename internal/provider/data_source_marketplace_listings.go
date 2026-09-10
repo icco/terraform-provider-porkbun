@@ -42,9 +42,11 @@ type marketplaceListingsModel struct {
 	SortDirection types.String `tfsdk:"sort_direction"`
 	MaxResults    types.Int64  `tfsdk:"max_results"`
 
-	Filtered types.Bool `tfsdk:"filtered"`
-	Domains  types.Set  `tfsdk:"domains"`
-	Listings types.List `tfsdk:"listings"`
+	Filtered   types.Bool  `tfsdk:"filtered"`
+	Truncated  types.Bool  `tfsdk:"truncated"`
+	TotalCount types.Int64 `tfsdk:"total_count"`
+	Domains    types.Set   `tfsdk:"domains"`
+	Listings   types.List  `tfsdk:"listings"`
 }
 
 type marketplaceListingModel struct {
@@ -70,10 +72,17 @@ func marketplaceListingToModel(l porkbun.MarketplaceListing) marketplaceListingM
 	if p, ok := l.PriceUSD(); ok {
 		price = types.Float64Value(p)
 	}
+	// A missing sld_length must not read as 0: flexInt maps null and "" to
+	// zero, and a zero-length SLD is not a thing, so 0 would be a value the
+	// API never sent.
+	sldLength := types.Int64Null()
+	if n := l.SLDLength.Int64(); n > 0 {
+		sldLength = types.Int64Value(n)
+	}
 	return marketplaceListingModel{
 		Domain:     types.StringValue(l.Domain),
 		TLD:        types.StringValue(l.TLD),
-		SLDLength:  types.Int64Value(l.SLDLength.Int64()),
+		SLDLength:  sldLength,
 		Price:      price,
 		CreateDate: types.StringValue(l.CreateDate),
 	}
@@ -179,6 +188,18 @@ func (d *marketplaceListingsDataSource) Schema(_ context.Context, _ datasource.S
 					},
 				},
 			},
+			"truncated": schema.BoolAttribute{
+				Computed: true,
+				MarkdownDescription: "Whether the read stopped on `max_results` rather than at the end of the " +
+					"catalog. When true, `listings` is a prefix of the matches and not the whole set — raise " +
+					"`max_results` or narrow the filters to see the rest. Without this, a capped read is " +
+					"indistinguishable from an exhaustive one.",
+			},
+			"total_count": schema.Int64Attribute{
+				Computed: true,
+				MarkdownDescription: "The total number of matches Porkbun reported for the query, which can be " +
+					"larger than the number of `listings` returned when `truncated` is true.",
+			},
 		},
 	}
 }
@@ -245,6 +266,8 @@ func (d *marketplaceListingsDataSource) Read(ctx context.Context, req datasource
 	}
 
 	config.Filtered = types.BoolValue(res.Filtered)
+	config.Truncated = types.BoolValue(res.Truncated)
+	config.TotalCount = types.Int64Value(res.Count)
 	config.Domains = nameSet
 	config.Listings = detailList
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)

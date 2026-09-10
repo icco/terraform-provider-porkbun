@@ -70,6 +70,8 @@ locals {
 - `domains` (Set of String) The matching domain names, for set arithmetic against domains you already own.
 - `filtered` (Boolean) Whether the API applied server-side filtering, as it reports it. False means the response is a raw page of the catalog and `sort_name`/`sort_direction` had no effect.
 - `listings` (Attributes List) Each matching listing, sorted by domain name. (see [below for nested schema](#nestedatt--listings))
+- `total_count` (Number) The total number of matches Porkbun reported for the query, which can be larger than the number of `listings` returned when `truncated` is true.
+- `truncated` (Boolean) Whether the read stopped on `max_results` rather than at the end of the catalog. When true, `listings` is a prefix of the matches and not the whole set — raise `max_results` or narrow the filters to see the rest. Without this, a capped read is indistinguishable from an exhaustive one.
 
 <a id="nestedatt--listings"></a>
 ### Nested Schema for `listings`
