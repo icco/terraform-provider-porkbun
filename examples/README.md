@@ -1,9 +1,10 @@
 # Examples
 
-This directory contains examples that are mostly used for documentation, but can also be run/tested manually via the Terraform CLI.
+`tfplugindocs` embeds these files verbatim into `docs/`, so editing one changes the published documentation. Run `make docs` afterwards and commit the result, or CI fails.
 
-The document generation tool looks for files in the following locations by default. All other *.tf files besides the ones mentioned below are ignored by the documentation tool. This is useful for creating examples that can run and/or ar testable even if some parts are not relevant for the documentation.
+* `provider/provider.tf` — the provider index page
+* `data-sources/<data source name>/data-source.tf` — that data source's page
+* `resources/<resource name>/resource.tf` — that resource's page
+* `resources/<resource name>/import.sh`, `import-by-identity.tf`, `import-by-string-id.tf` — that resource's Import section
 
-* **provider/provider.tf** example file for the provider index page
-* **data-sources/`full data source name`/data-source.tf** example file for the named data source page
-* **resources/`full resource name`/resource.tf** example file for the named data source page
+Any other `.tf` file in this directory is ignored by the doc generator.

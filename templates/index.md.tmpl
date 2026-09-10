@@ -1,0 +1,41 @@
+---
+page_title: "Porkbun Provider"
+description: |-
+  Manage Porkbun domains from Terraform: registry nameserver delegation, and DNS records for zones hosted at Porkbun.
+---
+
+# Porkbun Provider
+
+Manage [Porkbun](https://porkbun.com) domains from Terraform: the nameservers a domain is delegated to at the registry, and DNS records for zones still hosted at Porkbun.
+
+`porkbun_domain_nameservers` is the reason this provider exists. When a domain is registered at Porkbun but its zone lives elsewhere — Cloud DNS, Route 53, anywhere — the delegation is otherwise a manual edit in the Porkbun web UI on every change.
+
+```terraform
+resource "porkbun_domain_nameservers" "example" {
+  domain      = "example.com"
+  nameservers = google_dns_managed_zone.example.name_servers
+}
+```
+
+Nameservers are a set, compared ignoring case, trailing dots and ordering, so another provider's `name_servers` output can be passed straight through without a permanent diff.
+
+## Requirements
+
+Terraform 1.0 or later: the provider speaks plugin protocol 6. `import` blocks need Terraform 1.5 or later, and importing by `identity` needs 1.12 or later.
+
+## Example Usage
+
+{{ tffile "examples/provider/provider.tf" }}
+
+## Authentication
+
+Credentials come from the provider configuration, or from the `PORKBUN_API_KEY` and `PORKBUN_SECRET_KEY` environment variables. They are sent as `X-API-Key` and `X-Secret-API-Key` headers, never in a request body.
+
+## Before your first apply
+
+1. **Enable API access** for the account at [porkbun.com/account/api](https://porkbun.com/account/api), then opt in per domain at [porkbun.com/account/domainsSpeedy](https://porkbun.com/account/domainsSpeedy) — or account-wide, with "Opt In All Domains" on the API page. A key cannot touch a domain that has not opted in, however well scoped it is. The `porkbun_domains` data source filtered on `api_access = true` lists the domains a key can actually use.
+2. **Check DNSSEC.** If a DS record exists at the registry and the new nameservers do not serve the matching signed zone, every validating resolver returns SERVFAIL the moment the delegation changes. This is the only failure mode here that takes a domain completely dark rather than merely stale. Clear the DS record in the Porkbun web UI before or with the switch; this provider does not manage DNSSEC.
+3. **Do not put an IP allowlist on the API key.** CI runner addresses are not stable and you will get `IP_NOT_ALLOWED`. Scope the key by domain instead.
+4. **Try one low-stakes domain first**, confirm with `dig NS`, then go wide.
+
+{{ .SchemaMarkdown | trimspace }}

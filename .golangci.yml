@@ -1,0 +1,54 @@
+# golangci-lint v2 schema (golangci-lint >= 2.0).
+version: "2"
+run:
+  timeout: 5m
+linters:
+  default: none
+  enable:
+    - depguard
+    - durationcheck
+    - errcheck
+    - errorlint
+    - copyloopvar
+    - forcetypeassert
+    - govet
+    - ineffassign
+    - makezero
+    - misspell
+    - nilerr
+    - predeclared
+    - staticcheck
+    - unconvert
+    - unparam
+    - unused
+    - usestdlibvars
+  settings:
+    depguard:
+      rules:
+        main:
+          deny:
+            # This provider is pure terraform-plugin-framework on protocol 6.
+            # Re-importing the old SDK is the specific regression to prevent:
+            # the tests that were deleted in the rewrite did exactly that.
+            - pkg: github.com/hashicorp/terraform-plugin-sdk/v2
+              desc: Use terraform-plugin-framework instead.
+            - pkg: github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource
+              desc: Use terraform-plugin-testing instead.
+  # Report everything; the defaults cap at 3 of a kind and 50 per linter,
+  # which quietly hides most of a first run.
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - unparam
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/icco/terraform-provider-porkbun
