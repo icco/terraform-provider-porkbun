@@ -1,9 +1,4 @@
 name: Release
-# A v* tag builds a draft; publishing the draft ships it and cannot be undone.
-# Rehearse with dry_run. To redo: delete the draft, delete the remote tag,
-# re-push -- the push event will not fire for an existing tag.
-# This publishes to registry.terraform.io only; OpenTofu is a separate
-# registry (https://github.com/opentofu/registry/issues/new/choose).
 on:
   push:
     tags:

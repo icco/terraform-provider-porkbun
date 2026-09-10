@@ -1,6 +1,4 @@
-# GoReleaser v2. `goreleaser check` validates this file; run it before tagging,
-# because every one of the v1-to-v2 breaking changes fails only at release
-# time, which is after the tag is already spent.
+# GoReleaser v2.
 version: 2
 before:
   hooks:
@@ -57,11 +55,5 @@ release:
   extra_files:
     - glob: terraform-registry-manifest.json
       name_template: '{{ .ProjectName }}_{{ .Version }}_manifest.json'
-  # Kept on permanently. A published registry version can never be replaced,
-  # so the last gate before a permanent mistake is a human clicking publish.
-  # If a draft is wrong: delete the draft release, delete the remote tag, then
-  # re-push the tag. Skipping the tag deletion is what makes a re-run
-  # impossible.
-  draft: true
 changelog:
   disable: true
