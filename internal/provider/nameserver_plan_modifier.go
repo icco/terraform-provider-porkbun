@@ -13,11 +13,10 @@ import (
 // dots, ordering or duplicates.
 //
 // Terraform compares a Required attribute's configuration against state
-// literally, so without this a config that spells a nameserver
+// literally, so without this a config spelling a nameserver
 // "ns1.example.com." while state holds "ns1.example.com" plans a pointless
-// in-place update forever — which is exactly the state a fleet of domains
-// lands in right after `terraform import`, since an import has no
-// configuration to take its spelling from.
+// in-place update forever — exactly where an imported domain lands, since an
+// import has no configuration to take its spelling from.
 type suppressNameserverRespelling struct{}
 
 func (m suppressNameserverRespelling) Description(_ context.Context) string {
@@ -30,10 +29,8 @@ func (m suppressNameserverRespelling) MarkdownDescription(ctx context.Context) s
 
 func (m suppressNameserverRespelling) PlanModifySet(ctx context.Context, req planmodifier.SetRequest, resp *planmodifier.SetResponse) {
 	// setIsFullyKnown, not IsUnknown: a known set can still hold an unknown
-	// element (a hand-assembled list mixing literals with a computed value),
-	// and ElementsAs with allowUnhandled=false turns that into an
-	// "unhandled unknown value" error at plan time. There is nothing to
-	// compare until apply anyway.
+	// element (a list mixing literals with a computed value), and ElementsAs
+	// turns that into an "unhandled unknown value" error at plan time.
 	if !setIsFullyKnown(req.StateValue) || !setIsFullyKnown(req.PlanValue) {
 		return
 	}

@@ -47,9 +47,8 @@ data "porkbun_domain" "test" {
 					tfjsonpath.New("tld"), knownvalue.StringExact("com")),
 				statecheck.ExpectKnownValue("data.porkbun_domain.test",
 					tfjsonpath.New("api_access"), knownvalue.Bool(true)),
-				// notLocal is 1 in the fake, matching a domain delegated away
-				// from Porkbun: this is the flag that tells you
-				// porkbun_dns_record will apply green and do nothing.
+				// notLocal is 1 in the fake: the flag that tells you
+				// porkbun_dns_record would apply green and do nothing.
 				statecheck.ExpectKnownValue("data.porkbun_domain.test",
 					tfjsonpath.New("not_local"), knownvalue.Bool(true)),
 			},

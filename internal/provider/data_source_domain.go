@@ -106,8 +106,8 @@ func domainSchemaAttributes(computedDomain bool) map[string]schema.Attribute {
 		"not_local": schema.BoolAttribute{
 			Computed: true,
 			MarkdownDescription: "Whether the domain is delegated away from Porkbun's nameservers. When true, " +
-				"`porkbun_dns_record` still applies successfully against Porkbun's copy of the zone, but no resolver " +
-				"ever queries it — the records have no effect. Manage DNS wherever the domain is actually delegated.",
+				"`porkbun_dns_record` still applies cleanly against Porkbun's copy of the zone, but no resolver ever " +
+				"queries it — the records have no effect.",
 		},
 	}
 }

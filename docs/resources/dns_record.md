@@ -4,14 +4,14 @@ page_title: "porkbun_dns_record Resource - porkbun"
 subcategory: ""
 description: |-
   A DNS record in a zone hosted on Porkbun's nameservers.
-  ~> This resource only does anything for domains left on Porkbun nameservers. If a domain is delegated elsewhere (not_local is true on the porkbun_domain data source), Porkbun still accepts these writes and still answers SUCCESS, but the zone they edit is not the zone the internet resolves. The apply goes green and nothing changes. Manage records where the domain is actually delegated — for a domain pointed at Cloud DNS by porkbun_domain_nameservers, that is google_dns_record_set.
+  ~> Only useful while the domain is still on Porkbun's nameservers. Once it is delegated elsewhere (not_local is true on the porkbun_domain data source), Porkbun keeps accepting these writes and answering SUCCESS, but no resolver ever reads that zone: the apply goes green and nothing changes. Manage the records where the zone actually lives instead — google_dns_record_set for a zone in Cloud DNS, and so on.
 ---
 
 # porkbun_dns_record (Resource)
 
 A DNS record in a zone hosted on Porkbun's nameservers.
 
-~> **This resource only does anything for domains left on Porkbun nameservers.** If a domain is delegated elsewhere (`not_local` is true on the `porkbun_domain` data source), Porkbun still accepts these writes and still answers `SUCCESS`, but the zone they edit is not the zone the internet resolves. The apply goes green and nothing changes. Manage records where the domain is actually delegated — for a domain pointed at Cloud DNS by `porkbun_domain_nameservers`, that is `google_dns_record_set`.
+~> **Only useful while the domain is still on Porkbun's nameservers.** Once it is delegated elsewhere (`not_local` is true on the `porkbun_domain` data source), Porkbun keeps accepting these writes and answering `SUCCESS`, but no resolver ever reads that zone: the apply goes green and nothing changes. Manage the records where the zone actually lives instead — `google_dns_record_set` for a zone in Cloud DNS, and so on.
 
 ## Example Usage
 
@@ -49,7 +49,7 @@ resource "porkbun_dns_record" "mail" {
 
 - `content` (String) The record value, e.g. `1.2.3.4` for an `A` record.
 - `domain` (String) The domain the record belongs to, e.g. `example.com`.
-- `type` (String) The DNS record type.
+- `type` (String) The DNS record type: one of `A`, `AAAA`, `MX`, `CNAME`, `ALIAS`, `TXT`, `NS`, `SRV`, `TLSA`, `CAA`, `SSHFP`, `HTTPS`, `SVCB`.
 
 ### Optional
 

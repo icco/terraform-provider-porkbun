@@ -52,37 +52,34 @@ func (r *domainNameserversResource) Metadata(_ context.Context, req resource.Met
 
 func (r *domainNameserversResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Sets the authoritative nameservers a domain is delegated to at the registry — the Terraform " +
-			"equivalent of editing a domain's nameservers in the Porkbun web UI.\n\n" +
-			"~> **`terraform destroy` does not restore Porkbun's nameservers.** A registered domain always has " +
-			"nameservers and Porkbun publishes no \"reset to default\" endpoint, so destroying this resource only stops " +
-			"Terraform managing the delegation: it removes the resource from state, makes no API call, and leaves the " +
-			"registry exactly as it is. A later `apply` adopts whatever is there rather than resetting it. See the " +
-			"resource documentation for the reasoning.\n\n" +
-			"~> Repointing a DNSSEC-signed domain will take it **completely dark** on validating resolvers. If a DS " +
+		MarkdownDescription: "Sets the nameservers a domain is delegated to at the registry — the Terraform equivalent " +
+			"of editing a domain's nameservers in the Porkbun web UI.\n\n" +
+			"~> **`terraform destroy` does not restore Porkbun's nameservers.** Porkbun has no endpoint that unsets a " +
+			"delegation, so destroying this resource makes no API call: it drops the resource from state and leaves " +
+			"the domain delegated exactly where it is.\n\n" +
+			"~> Repointing a DNSSEC-signed domain takes it **completely dark** on validating resolvers. If a DS " +
 			"record exists at Porkbun (`/dns/getDnssecRecords`) and the new nameservers do not serve the matching " +
 			"signed zone, clear the DS record before or with the switch.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "The domain name. Present for Terraform's benefit; equal to `domain`.",
+				MarkdownDescription: "The domain name. Always equal to `domain`.",
 				Computed:            true,
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"domain": schema.StringAttribute{
-				MarkdownDescription: "The domain whose registry nameservers are managed, e.g. `example.com`. " +
-					"Must be registered in the authenticated Porkbun account and opted in to API access. " +
-					"Must be written in lowercase and without a trailing dot: this attribute forces replacement and " +
-					"is compared literally, so `Example.com` and `example.com` would be two resources fighting over " +
-					"one delegation.",
+				MarkdownDescription: "The domain to delegate, e.g. `example.com`. Must be in the authenticated " +
+					"Porkbun account with API access enabled for it. Must be lowercase with no trailing dot: the " +
+					"value is compared literally and forces replacement, so `Example.com` and `example.com` would be " +
+					"two resources fighting over one delegation.",
 				Required:      true,
 				Validators:    []validator.String{stringvalidator.LengthAtLeast(3), canonicalDomain{}},
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"nameservers": schema.SetAttribute{
-				MarkdownDescription: "The set of nameserver hostnames to delegate to, e.g. the `name_servers` output of a " +
-					"`google_dns_managed_zone`. Hostnames are compared case-insensitively and with any trailing dot " +
-					"removed, and order is ignored: an NS RRset is unordered (RFC 1034/2181) and registries return it " +
-					"in whatever order they like.",
+				MarkdownDescription: "The nameserver hostnames to delegate to, e.g. the `name_servers` output of a " +
+					"`google_dns_managed_zone`. Case, trailing dots and ordering are ignored, so another provider's " +
+					"output can be passed straight through. Between 2 and 13 distinct hostnames are required, counted " +
+					"after duplicate spellings collapse.",
 				Required:    true,
 				ElementType: types.StringType,
 				Validators: []validator.Set{
@@ -150,20 +147,16 @@ func (r *domainNameserversResource) write(
 		return
 	}
 
-	// updateNs answers with a bare {"status":"SUCCESS"}; it does not echo what
-	// was applied. Read the delegation back rather than assuming the plan
-	// landed verbatim — but treat the answer as a report, not as the state.
+	// updateNs answers a bare {"status":"SUCCESS"} without echoing what was
+	// applied, so read the delegation back — but report the answer, never
+	// store it.
 	//
-	// `nameservers` is Required, so Terraform core requires the state this
-	// function writes to equal the planned value exactly. /domain/getNs reads
-	// live from the registry and registry propagation is not synchronous, so
-	// the first read after a write can legitimately still return the previous
-	// set. Storing that stale answer would make core abort the apply with
-	// "Provider produced inconsistent result after apply … This is a bug in
-	// the provider", which is both untrue and unrecoverable without a second
-	// apply. So the planned value goes into state and any disagreement is
-	// reported as a warning; the next refresh reads the registry again and
-	// shows real, persistent divergence as ordinary drift.
+	// `nameservers` is Required, so core demands the state written here equal
+	// the planned value exactly. /domain/getNs reads live from the registry
+	// and propagation is not synchronous, so a write that succeeded can read
+	// back stale; storing that would abort the apply with "Provider produced
+	// inconsistent result after apply … This is a bug in the provider". Warn
+	// instead: the next refresh shows persistent divergence as ordinary drift.
 	switch applied, err := r.client.GetNameservers(ctx, domain); {
 	case err != nil:
 		tflog.Warn(ctx, "could not read back nameserver delegation", map[string]any{"domain": domain, "error": err.Error()})
@@ -202,10 +195,10 @@ func (r *domainNameserversResource) write(
 //
 // setvalidator.SizeBetween counts configured strings, but the wire payload is
 // built from NormalizeNameservers, which folds case, strips trailing dots and
-// de-duplicates. ["ns1.example.com", "ns1.example.com."] passes the size
-// validator and delegates to one nameserver. Catching it here reports the
-// real problem at plan time; porkbun.UpdateNameservers refuses it again at
-// the last moment for anything that reaches the client by another route.
+// de-duplicates: ["ns1.example.com", "ns1.example.com."] passes the size
+// validator and delegates to one nameserver. Catching it here names the real
+// problem at plan time; porkbun.UpdateNameservers refuses it again for
+// anything that reaches the client by another route.
 func (r *domainNameserversResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
 	var config domainNameserversModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
@@ -213,9 +206,8 @@ func (r *domainNameserversResource) ValidateConfig(ctx context.Context, req reso
 		return
 	}
 
-	// An unknown set, or one holding an unknown element, is the documented
-	// google_dns_managed_zone.x.name_servers case: there is nothing to count
-	// until apply.
+	// A set that is unknown, or holds an unknown element — another provider's
+	// name_servers output before apply — has nothing to count yet.
 	if !setIsFullyKnown(config.Nameservers) {
 		return
 	}
@@ -238,8 +230,8 @@ func (r *domainNameserversResource) ValidateConfig(ctx context.Context, req reso
 	}
 }
 
-// setIsFullyKnown reports whether a set value and every one of its elements
-// is known and non-null, i.e. whether ElementsAs can convert it.
+// setIsFullyKnown reports whether ElementsAs can convert v: the set and every
+// element is known and non-null.
 func setIsFullyKnown(v types.Set) bool {
 	if v.IsNull() || v.IsUnknown() {
 		return false
@@ -286,15 +278,11 @@ func (r *domainNameserversResource) Read(ctx context.Context, req resource.ReadR
 	resp.Diagnostics.Append(setNameserversIdentity(ctx, resp.Identity, domain)...)
 }
 
-// Delete deliberately makes no API call.
-//
-// There is no endpoint that unsets a domain's nameservers, and there is no
-// citable list of Porkbun's own defaults: they appear nowhere in the API
-// spec, the spec's ns1/ns2.porkbun.com examples do not answer DNS at all, and
-// the real fleet is only discoverable by looking up a live domain. Sending
+// Delete deliberately makes no API call. There is no endpoint that unsets a
+// domain's nameservers, and Porkbun's own defaults are documented nowhere;
 // ns:[] is schema-legal but undocumented and could de-delegate the domain at
-// the registry. So destroy means "stop managing this delegation", and the
-// warning says so out loud rather than letting it be a silent surprise.
+// the registry. Do not "fix" this by sending an empty list — destroy means
+// "stop managing this delegation", and the warning says so out loud.
 func (r *domainNameserversResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var state domainNameserversModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
@@ -314,8 +302,6 @@ func (r *domainNameserversResource) Delete(ctx context.Context, req resource.Del
 
 // ImportState accepts either `terraform import ... example.com` or a
 // Terraform 1.12+ import block carrying an identity of {domain = "..."}.
-// The latter is the migration path for a fleet of already hand-configured
-// domains.
 func (r *domainNameserversResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughWithIdentity(ctx, path.Root("domain"), path.Root("domain"), req, resp)
 }
@@ -331,10 +317,9 @@ func setNameserversIdentity(ctx context.Context, identity *tfsdk.ResourceIdentit
 
 // newNameserversState builds the state value for a domain.
 //
-// When the registry's set matches what the practitioner configured, the
-// configured spelling is preserved so the value in state is the value in the
-// config; otherwise the registry's normalized answer wins, which is what
-// makes real out-of-band drift visible.
+// When the registry's set matches the prior state, that spelling is kept so
+// state stays equal to the configuration; otherwise the registry's
+// normalized answer wins, which is what makes out-of-band drift visible.
 func newNameserversState(ctx context.Context, domain string, current, prior []string) (domainNameserversModel, diag.Diagnostics) {
 	value := porkbun.NormalizeNameservers(current)
 	if porkbun.SameNameserverSet(current, prior) && len(prior) > 0 {

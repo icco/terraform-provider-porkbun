@@ -61,11 +61,11 @@ func (r *dnsRecordResource) Metadata(_ context.Context, req resource.MetadataReq
 func (r *dnsRecordResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "A DNS record in a zone hosted on Porkbun's nameservers.\n\n" +
-			"~> **This resource only does anything for domains left on Porkbun nameservers.** If a domain is " +
-			"delegated elsewhere (`not_local` is true on the `porkbun_domain` data source), Porkbun still accepts " +
-			"these writes and still answers `SUCCESS`, but the zone they edit is not the zone the internet resolves. " +
-			"The apply goes green and nothing changes. Manage records where the domain is actually delegated — for a " +
-			"domain pointed at Cloud DNS by `porkbun_domain_nameservers`, that is `google_dns_record_set`.",
+			"~> **Only useful while the domain is still on Porkbun's nameservers.** Once it is delegated elsewhere " +
+			"(`not_local` is true on the `porkbun_domain` data source), Porkbun keeps accepting these writes and " +
+			"answering `SUCCESS`, but no resolver ever reads that zone: the apply goes green and nothing changes. " +
+			"Manage the records where the zone actually lives instead — `google_dns_record_set` for a zone in " +
+			"Cloud DNS, and so on.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "The Porkbun record ID.",
@@ -87,10 +87,11 @@ func (r *dnsRecordResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplaceIfConfigured()},
 			},
 			"type": schema.StringAttribute{
-				MarkdownDescription: "The DNS record type.",
-				Required:            true,
-				Validators:          []validator.String{stringvalidator.OneOf(porkbun.RecordTypes...)},
-				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				MarkdownDescription: "The DNS record type: one of `A`, `AAAA`, `MX`, `CNAME`, `ALIAS`, `TXT`, `NS`, " +
+					"`SRV`, `TLSA`, `CAA`, `SSHFP`, `HTTPS`, `SVCB`.",
+				Required:      true,
+				Validators:    []validator.String{stringvalidator.OneOf(porkbun.RecordTypes...)},
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"content": schema.StringAttribute{
 				MarkdownDescription: "The record value, e.g. `1.2.3.4` for an `A` record.",
@@ -183,9 +184,8 @@ func (r *dnsRecordResource) Read(ctx context.Context, req resource.ReadRequest, 
 		return
 	}
 
-	// Refresh every attribute. Refreshing only `name`, as the original
-	// implementation did, means drift in content, ttl, type, prio or notes is
-	// never detected at all.
+	// Refresh every attribute: anything omitted here is drift Terraform can
+	// never detect.
 	state.ID = types.StringValue(id)
 	state.Name = types.StringValue(porkbun.SubdomainOf(record.Name, domain))
 	state.Type = types.StringValue(record.Type)
@@ -239,8 +239,7 @@ func (r *dnsRecordResource) Delete(ctx context.Context, req resource.DeleteReque
 
 // ImportState accepts `domain/record_id`, or a Terraform 1.12+ import block
 // with an identity of {domain, record_id}. The record ID alone is not enough:
-// every API call needs the domain too, which is why importing this resource
-// never worked before.
+// every /dns/* call needs the domain too.
 func (r *dnsRecordResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	if req.Identity != nil && !req.Identity.Raw.IsNull() {
 		var identity dnsRecordIdentity

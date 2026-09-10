@@ -37,7 +37,7 @@ output "dns_is_hosted_at_porkbun" {
 - `auto_renew` (Boolean) Whether auto-renew is enabled.
 - `create_date` (String) When the domain was registered, as Porkbun reports it.
 - `expire_date` (String) When the registration expires, as Porkbun reports it.
-- `not_local` (Boolean) Whether the domain is delegated away from Porkbun's nameservers. When true, `porkbun_dns_record` still applies successfully against Porkbun's copy of the zone, but no resolver ever queries it — the records have no effect. Manage DNS wherever the domain is actually delegated.
+- `not_local` (Boolean) Whether the domain is delegated away from Porkbun's nameservers. When true, `porkbun_dns_record` still applies cleanly against Porkbun's copy of the zone, but no resolver ever queries it — the records have no effect.
 - `security_lock` (Boolean) Whether the registrar transfer lock is enabled.
 - `status` (String) Registration status, e.g. `ACTIVE`.
 - `tld` (String) The top-level domain, without a leading dot.

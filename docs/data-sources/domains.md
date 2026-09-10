@@ -4,14 +4,14 @@ page_title: "porkbun_domains Data Source - porkbun"
 subcategory: ""
 description: |-
   Lists domains in the authenticated Porkbun account, optionally filtered. Paging is handled internally.
-  The api_access filter is the cheap way to verify the per-domain API opt-in gate before a wide apply: compare domains against the set you intend to manage with setsubtract() and fail the plan if anything is missing.
+  Filter on api_access = true to get just the domains this key is allowed to operate on, and check that set against the domains you manage before a wide apply.
 ---
 
 # porkbun_domains (Data Source)
 
 Lists domains in the authenticated Porkbun account, optionally filtered. Paging is handled internally.
 
-The `api_access` filter is the cheap way to verify the per-domain API opt-in gate before a wide apply: compare `domains` against the set you intend to manage with `setsubtract()` and fail the plan if anything is missing.
+Filter on `api_access = true` to get just the domains this key is allowed to operate on, and check that set against the domains you manage before a wide apply.
 
 ## Example Usage
 
@@ -49,8 +49,8 @@ data "porkbun_domains" "expiring" {
 - `api_access` (Boolean) Filter to domains opted in to API access (`true`) or not opted in (`false`). Omit for no filter.
 - `auto_renew` (Boolean) Filter to domains with auto-renew on or off. Omit for no filter.
 - `expiring_within_days` (Number) Limit results to domains expiring within this many days.
-- `name_contains` (String) Case-insensitive substring match against the full domain name.
-- `tlds` (Set of String) Limit results to these top-level domains, without leading dots.
+- `name_contains` (String) Substring match against the full domain name, passed to Porkbun's `nameContains` filter.
+- `tlds` (Set of String) Limit results to these top-level domains, e.g. `com`. Case and a leading dot are ignored.
 
 ### Read-Only
 
@@ -67,7 +67,7 @@ Read-Only:
 - `create_date` (String) When the domain was registered, as Porkbun reports it.
 - `domain` (String) The fully qualified domain name.
 - `expire_date` (String) When the registration expires, as Porkbun reports it.
-- `not_local` (Boolean) Whether the domain is delegated away from Porkbun's nameservers. When true, `porkbun_dns_record` still applies successfully against Porkbun's copy of the zone, but no resolver ever queries it — the records have no effect. Manage DNS wherever the domain is actually delegated.
+- `not_local` (Boolean) Whether the domain is delegated away from Porkbun's nameservers. When true, `porkbun_dns_record` still applies cleanly against Porkbun's copy of the zone, but no resolver ever queries it — the records have no effect.
 - `security_lock` (Boolean) Whether the registrar transfer lock is enabled.
 - `status` (String) Registration status, e.g. `ACTIVE`.
 - `tld` (String) The top-level domain, without a leading dot.

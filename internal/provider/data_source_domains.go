@@ -43,9 +43,8 @@ func (d *domainsDataSource) Metadata(_ context.Context, req datasource.MetadataR
 func (d *domainsDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Lists domains in the authenticated Porkbun account, optionally filtered. Paging is handled " +
-			"internally.\n\nThe `api_access` filter is the cheap way to verify the per-domain API opt-in gate before a " +
-			"wide apply: compare `domains` against the set you intend to manage with `setsubtract()` and fail the plan " +
-			"if anything is missing.",
+			"internally.\n\nFilter on `api_access = true` to get just the domains this key is allowed to operate on, " +
+			"and check that set against the domains you manage before a wide apply.",
 		Attributes: map[string]schema.Attribute{
 			"api_access": schema.BoolAttribute{
 				MarkdownDescription: "Filter to domains opted in to API access (`true`) or not opted in (`false`). " +
@@ -57,11 +56,12 @@ func (d *domainsDataSource) Schema(_ context.Context, _ datasource.SchemaRequest
 				Optional:            true,
 			},
 			"name_contains": schema.StringAttribute{
-				MarkdownDescription: "Case-insensitive substring match against the full domain name.",
-				Optional:            true,
+				MarkdownDescription: "Substring match against the full domain name, passed to Porkbun's " +
+					"`nameContains` filter.",
+				Optional: true,
 			},
 			"tlds": schema.SetAttribute{
-				MarkdownDescription: "Limit results to these top-level domains, without leading dots.",
+				MarkdownDescription: "Limit results to these top-level domains, e.g. `com`. Case and a leading dot are ignored.",
 				Optional:            true,
 				ElementType:         types.StringType,
 			},

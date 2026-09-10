@@ -111,8 +111,8 @@ resource "porkbun_dns_record" "apex" {
 	})
 }
 
-// TestAccDNSRecordDisappears covers out-of-band deletion, which the previous
-// implementation could never notice.
+// TestAccDNSRecordDisappears covers out-of-band deletion: Read must drop the
+// resource from state so the next plan recreates it, not return an error.
 func TestAccDNSRecordDisappears(t *testing.T) {
 	fake, url := newFakeAPI(t)
 	fake.seedDomain("trout.quest", "curitiba.ns.porkbun.com", "fortaleza.ns.porkbun.com")
