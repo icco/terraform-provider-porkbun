@@ -25,14 +25,18 @@ func TestMockTLDRegistrationRequirements(t *testing.T) {
 	}
 
 	// A rename upstream turns every attribute of the data source silently
-	// null, which no value assertion would catch.
+	// null, which no value assertion would catch. Only the fields the spec
+	// does not mark nullable are required here: maxRegistrationYears and
+	// registryRequirements are legitimately absent for a TLD with no stated
+	// maximum and no extra eligibility data, and Porkbun is free to move its
+	// example to such a TLD.
 	for _, field := range []string{
-		"tld", "apiRegisterable", "registrationDurationYears", "maxRegistrationYears",
+		"tld", "apiRegisterable", "registrationDurationYears",
 		"whoisPrivacySupported", "requiresValidatedAddress", "registrantOnly",
-		"requestSchema", "registryRequirements",
+		"requestSchema",
 	} {
 		if _, ok := raw[field]; !ok {
-			t.Errorf("response no longer carries %q; got fields %v", field, sortedKeys(raw))
+			t.Errorf("response no longer carries %q; got fields %v", field, tldSortedKeys(raw))
 		}
 	}
 
@@ -42,7 +46,7 @@ func TestMockTLDRegistrationRequirements(t *testing.T) {
 		t.Fatalf("GetTLDRegistrationRequirements: %v", err)
 	}
 
-	if want := unquote(raw["tld"]); string(got.TLD) != want {
+	if want := tldUnquoteJSON(raw["tld"]); string(got.TLD) != want {
 		t.Errorf("TLD = %q, body said %q", got.TLD, want)
 	}
 
@@ -57,7 +61,7 @@ func TestMockTLDRegistrationRequirements(t *testing.T) {
 		{"requiresValidatedAddress", got.RequiresValidatedAddress.Bool()},
 		{"registrantOnly", got.RegistrantOnly.Bool()},
 	} {
-		want := unquote(raw[tc.field])
+		want := tldUnquoteJSON(raw[tc.field])
 		if truthy := want == "true" || want == "1" || want == "yes"; truthy != tc.got {
 			t.Errorf("%s decoded as %v, body said %q", tc.field, tc.got, want)
 		}
@@ -69,11 +73,15 @@ func TestMockTLDRegistrationRequirements(t *testing.T) {
 		"requestSchema":        got.RequestSchemaJSON(),
 		"registryRequirements": got.RegistryRequirementsJSON(),
 	} {
-		if strings.TrimSpace(string(raw[name])) == "null" {
+		body, present := raw[name]
+		if !present || strings.TrimSpace(string(body)) == "null" {
+			if doc != "" {
+				t.Errorf("%s was not sent but decoded to %q", name, doc)
+			}
 			continue
 		}
 		if doc == "" {
-			t.Errorf("%s did not decode: %s", name, truncate(string(raw[name]), 120))
+			t.Errorf("%s did not decode: %s", name, truncate(string(body), 120))
 			continue
 		}
 		var parsed map[string]any
@@ -82,9 +90,15 @@ func TestMockTLDRegistrationRequirements(t *testing.T) {
 		}
 	}
 
-	// maxRegistrationYears is nullable, and null must not arrive as a real 0.
-	if strings.TrimSpace(string(raw["maxRegistrationYears"])) == "null" && got.MaxRegistrationYears != nil {
-		t.Errorf("null maxRegistrationYears decoded as %d", got.MaxRegistrationYears.Int64())
+	// maxRegistrationYears is nullable, and neither null nor an absent field
+	// may arrive as a real 0.
+	switch body, present := raw["maxRegistrationYears"]; {
+	case !present || strings.TrimSpace(string(body)) == "null":
+		if got.MaxRegistrationYears != nil {
+			t.Errorf("an unstated maxRegistrationYears decoded as %d", got.MaxRegistrationYears.Int64())
+		}
+	case got.MaxRegistrationYears == nil:
+		t.Errorf("maxRegistrationYears %s did not decode", body)
 	}
 	if got.RegistrationDurationYears.Int64() <= 0 {
 		t.Errorf("registrationDurationYears did not decode: body said %s", raw["registrationDurationYears"])
@@ -158,7 +172,7 @@ func TestTLDRequirementsNullVersusZero(t *testing.T) {
 	}
 }
 
-func sortedKeys(m map[string]json.RawMessage) []string {
+func tldSortedKeys(m map[string]json.RawMessage) []string {
 	out := make([]string, 0, len(m))
 	for k := range m {
 		out = append(out, k)
@@ -167,7 +181,7 @@ func sortedKeys(m map[string]json.RawMessage) []string {
 	return out
 }
 
-func unquote(raw json.RawMessage) string {
+func tldUnquoteJSON(raw json.RawMessage) string {
 	s := strings.TrimSpace(string(raw))
 	var str string
 	if err := json.Unmarshal(raw, &str); err == nil {

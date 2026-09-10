@@ -7,12 +7,15 @@ data "porkbun_tld_registration_requirements" "us" {
   tld = "us"
 }
 
-# Both schema attributes are JSON documents in a string: decode them.
+# Both schema attributes are JSON documents in a string, and both are null
+# when Porkbun sent no schema — so guard every jsondecode with a null check.
 output "com_create_fields" {
-  value = keys(jsondecode(data.porkbun_tld_registration_requirements.com.request_schema).properties)
+  value = data.porkbun_tld_registration_requirements.com.request_schema == null ? [] : keys(
+    jsondecode(data.porkbun_tld_registration_requirements.com.request_schema).properties
+  )
 }
 
-# Null when the TLD has no structured eligibility rules, so guard the decode.
+# Null whenever the TLD has no structured eligibility rules, which is most.
 output "us_eligibility_fields" {
   value = data.porkbun_tld_registration_requirements.us.registry_requirements == null ? [] : keys(
     jsondecode(data.porkbun_tld_registration_requirements.us.registry_requirements).properties

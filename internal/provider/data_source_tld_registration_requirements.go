@@ -17,7 +17,7 @@ import (
 var (
 	_ datasource.DataSource              = (*tldRegistrationRequirementsDataSource)(nil)
 	_ datasource.DataSourceWithConfigure = (*tldRegistrationRequirementsDataSource)(nil)
-	_ validator.String                   = bareTLD{}
+	_ validator.String                   = tldNoLeadingDot{}
 )
 
 func init() { registerDataSource(NewTLDRegistrationRequirementsDataSource) }
@@ -45,18 +45,18 @@ type tldRegistrationRequirementsModel struct {
 	RegistryRequirements      types.String `tfsdk:"registry_requirements"`
 }
 
-// bareTLD rejects a leading dot. Porkbun's path segment is the TLD alone, so
+// tldNoLeadingDot rejects a leading dot. Porkbun's path segment is the TLD alone, so
 // `.us` and `us` are one lookup written two ways. Interior dots are left
 // alone: `co.uk` is a TLD Porkbun sells.
-type bareTLD struct{}
+type tldNoLeadingDot struct{}
 
-func (bareTLD) Description(_ context.Context) string {
+func (tldNoLeadingDot) Description(_ context.Context) string {
 	return "must be a TLD with no leading dot, e.g. \"us\""
 }
 
-func (v bareTLD) MarkdownDescription(ctx context.Context) string { return v.Description(ctx) }
+func (v tldNoLeadingDot) MarkdownDescription(ctx context.Context) string { return v.Description(ctx) }
 
-func (bareTLD) ValidateString(_ context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+func (tldNoLeadingDot) ValidateString(_ context.Context, req validator.StringRequest, resp *validator.StringResponse) {
 	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
 		return
 	}
@@ -90,7 +90,7 @@ func (d *tldRegistrationRequirementsDataSource) Schema(_ context.Context, _ data
 				MarkdownDescription: "The top-level domain to describe, without a leading dot, e.g. `com`, `us`, " +
 					"`co.uk`. Lowercase, with no surrounding whitespace.",
 				Required:   true,
-				Validators: []validator.String{stringvalidator.LengthAtLeast(2), canonicalDomain{}, bareTLD{}},
+				Validators: []validator.String{stringvalidator.LengthAtLeast(2), canonicalDomain{}, tldNoLeadingDot{}},
 			},
 			"api_registerable": schema.BoolAttribute{
 				Computed: true,
