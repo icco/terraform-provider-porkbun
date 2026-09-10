@@ -10,41 +10,32 @@ import (
 
 // ErrNoNameservers guards against sending an empty nameserver array to
 // /domain/updateNs. The schema permits it (`ns` is required but has no
-// minItems) and the behaviour is documented nowhere: it might be rejected,
-// no-op, restore Porkbun defaults, or de-delegate a live domain at the
-// registry. None of those is a thing a Terraform apply should discover in
-// production, so the client refuses.
+// minItems) and the behaviour is documented nowhere, so it could de-delegate
+// a live domain. The client refuses rather than find out in production.
 var ErrNoNameservers = errors.New("refusing to send an empty nameserver list to porkbun: /domain/updateNs behaviour for ns:[] is undocumented and could de-delegate the domain")
 
-// MinNameservers and MaxNameservers bound a workable delegation. Every
-// registry requires at least two authoritative nameservers, and Porkbun's
-// own UI will not save fewer.
+// MinNameservers and MaxNameservers bound the delegation the provider
+// accepts. UpdateNameservers enforces the floor; the ceiling is enforced
+// only by the resource schema validator.
 const (
 	MinNameservers = 2
 	MaxNameservers = 13
 )
 
 // ErrTooFewNameservers guards the floor after normalization rather than
-// before it.
-//
-// The resource schema enforces a minimum of two elements, but it counts the
-// strings as configured, and NormalizeNameservers folds case, strips
-// trailing dots and de-duplicates. ["ns1.example.com", "ns1.example.com."]
-// is two distinct strings and one nameserver, so a config that satisfies the
-// schema can still put a single-nameserver delegation on the wire. That
-// leaves a domain one outage away from dark, and — because both sides
-// normalize before comparing — it never shows up as drift. The floor
-// therefore lives where the payload is built.
+// before it. The resource schema validator counts the strings as configured,
+// but NormalizeNameservers folds case, strips trailing dots and
+// de-duplicates: ["ns1.example.com", "ns1.example.com."] satisfies the
+// validator and still puts a single-nameserver delegation on the wire. Both
+// sides normalize before comparing, so it never surfaces as drift either.
 var ErrTooFewNameservers = errors.New("refusing to send fewer than two distinct nameservers to porkbun: a single-nameserver delegation has no redundancy")
 
 // NormalizeNameserver lowercases a nameserver hostname and strips the root
-// label's trailing dot.
-//
-// This exists because the same nameserver arrives spelled three ways:
-// Cloud DNS hands out "ns-cloud-a1.googledomains.com." with a trailing dot,
-// people type them without, and registries are free to change the case. If
-// the provider does not fold all three to one spelling on both the read and
-// the write side, every plan shows drift that no apply can fix.
+// label's trailing dot. The same nameserver arrives spelled three ways —
+// Cloud DNS emits "ns-cloud-a1.googledomains.com." with the dot, people type
+// it without, and registries may change the case — and unless the read and
+// write sides fold all three to one spelling, every plan shows drift that no
+// apply can fix.
 func NormalizeNameserver(ns string) string {
 	ns = strings.TrimSpace(ns)
 	ns = strings.TrimSuffix(ns, ".")
@@ -101,9 +92,9 @@ func (c *Client) GetNameservers(ctx context.Context, domain string) ([]string, e
 	return NormalizeNameservers(out.NS), nil
 }
 
-// UpdateNameservers sets the registry nameservers for the domain. It refuses
-// an empty list. There is no create and no delete: a registered domain always
-// has nameservers, so this is the only write operation for delegation.
+// UpdateNameservers sets the registry nameservers for the domain. There is
+// no create and no delete: a registered domain always has nameservers, so
+// this is the only write operation for delegation.
 func (c *Client) UpdateNameservers(ctx context.Context, domain string, ns []string) error {
 	normalized := NormalizeNameservers(ns)
 	if len(normalized) == 0 {

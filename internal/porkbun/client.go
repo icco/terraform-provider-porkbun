@@ -1,19 +1,18 @@
 // Package porkbun is a small, hand-written client for the subset of the
 // Porkbun v3 JSON API that this Terraform provider needs.
 //
-// Two things about the API drive the design of this package:
+// Two API behaviours drive its design:
 //
-//  1. Errors are signalled in the JSON body, not (only) in the HTTP status
-//     code. Some endpoints answer HTTP 200 with {"status":"ERROR"}, others
-//     answer HTTP 400 with the same body. Every response is therefore
-//     inspected for a "status" field and anything that is not SUCCESS is
-//     turned into an *Error, regardless of the HTTP code.
+//  1. Errors are signalled in the JSON body, not the HTTP status code. Some
+//     endpoints answer HTTP 200 with {"status":"ERROR"}, others answer HTTP
+//     400 with the same body. Every response is inspected for a "status"
+//     field, and anything but SUCCESS becomes an *Error whatever the HTTP
+//     code was.
 //
-//  2. Authentication is available both as apikey/secretapikey in the request
-//     body and as X-API-Key/X-Secret-API-Key headers. This client always uses
-//     the headers: it keeps credentials out of request bodies (and therefore
-//     out of anything that logs them) and it makes idempotent GET reads
-//     possible.
+//  2. Credentials may travel either as apikey/secretapikey in the request
+//     body or as X-API-Key/X-Secret-API-Key headers. This client always uses
+//     the headers, keeping credentials out of request bodies and out of
+//     anything that logs them.
 package porkbun
 
 import (
@@ -35,8 +34,8 @@ import (
 
 // DefaultBaseURL is the production Porkbun v3 JSON API.
 //
-// Networks without IPv6-to-IPv4 fallback may prefer
-// https://api-ipv4.porkbun.com/api/json/v3, which resolves A records only.
+// https://api-ipv4.porkbun.com/api/json/v3 is the same API on a host with
+// only A records, for callers whose IPv6 path to the default host is broken.
 const DefaultBaseURL = "https://api.porkbun.com/api/json/v3"
 
 // MockBaseURL serves schema-shaped placeholder responses without
@@ -67,7 +66,8 @@ type Client struct {
 	http      *retryablehttp.Client
 }
 
-// New builds a Client. It returns an error only if BaseURL cannot be parsed.
+// New builds a Client. It returns an error only if BaseURL is not an
+// absolute URL.
 func New(cfg Config) (*Client, error) {
 	raw := cfg.BaseURL
 	if raw == "" {
@@ -90,13 +90,13 @@ func New(cfg Config) (*Client, error) {
 	rc.RetryMax = retries
 	rc.RetryWaitMin = 500 * time.Millisecond
 	rc.RetryWaitMax = 30 * time.Second
-	// retryablehttp's DefaultBackoff honours Retry-After on 429 and 503.
+	// DefaultBackoff honours Retry-After on 429 and 503.
 	rc.Backoff = retryablehttp.DefaultBackoff
-	// Silence retryablehttp's own logger; this package logs through tflog.
+	// This package logs through tflog.
 	rc.Logger = nil
-	// Hand back the last response rather than swallowing it in a "giving up
-	// after N attempts" error: Porkbun puts the useful diagnosis in the body,
-	// including on the 4xx and 5xx responses that exhaust the retry budget.
+	// Hand back the last response instead of a "giving up after N attempts"
+	// error: Porkbun puts the useful diagnosis in the body, including on the
+	// 4xx and 5xx responses that exhaust the retry budget.
 	rc.ErrorHandler = retryablehttp.PassthroughErrorHandler
 	if cfg.HTTPClient != nil {
 		rc.HTTPClient = cfg.HTTPClient
@@ -119,8 +119,8 @@ func New(cfg Config) (*Client, error) {
 // BaseURL returns the configured API root.
 func (c *Client) BaseURL() string { return c.baseURL.String() }
 
-// statusEnvelope is the part of every Porkbun response that says whether the
-// call worked. It is decoded before the caller's own struct.
+// statusEnvelope is the success/failure part of every Porkbun response,
+// decoded before the caller's own struct.
 type statusEnvelope struct {
 	Status     string      `json:"status"`
 	Message    string      `json:"message"`
@@ -144,7 +144,8 @@ type Error struct {
 	HTTPStatus int
 	// Status is the JSON "status" field, normally "ERROR".
 	Status string
-	// Message is the human-readable description.
+	// Message is the human-readable description, or the truncated response
+	// body when the API answered an HTTP error with no usable JSON.
 	Message string
 	// Code is the machine-readable error code, e.g. DOMAIN_NOT_FOUND.
 	Code string
@@ -192,22 +193,18 @@ func ErrorCode(err error) string {
 }
 
 // IsNotFound reports whether err says the domain or record does not exist.
-// Terraform Read implementations use it to drop the resource from state
-// instead of failing the whole refresh, so it is deliberately narrow: it
-// matches only Porkbun error codes that can mean nothing else.
+// Terraform Read uses it to drop the resource from state instead of failing
+// the refresh, so it is deliberately narrow.
 //
-// In particular it does not match on HTTP 404 alone. A 404 is also what a
-// misconfigured base_url, an intercepting proxy or a future path rename
-// produces, and treating those as "the domain is gone" would silently
-// RemoveResource every managed domain on a single typo — a refresh that
-// looks like it succeeded followed by a plan proposing to create everything.
-// A hard error is noisy but truthful.
+// It does not match HTTP 404 alone: a 404 is equally what a misconfigured
+// base_url or an intercepting proxy returns, and reading that as "the domain
+// is gone" would RemoveResource every managed domain on a single typo.
 //
-// It also does not match INVALID_DOMAIN. The v3 spec defines that code as
-// "Domain parameter is invalid or not in your account", so it is equally the
-// answer to a malformed domain; DOMAIN_NOT_FOUND is the unambiguous
-// "not in this account" code. See apiErrorDiagnostic for the guidance the
-// provider renders instead.
+// Nor does it match INVALID_DOMAIN, which the v3 spec defines as "Domain
+// parameter is invalid or not in your account" — equally the answer to a
+// malformed domain. INVALID_RECORD_ID is ambiguous in the same way, but ids
+// reaching this client come from the API or pass ParseRecordID first, so
+// here it can only mean the record is gone.
 func IsNotFound(err error) bool {
 	switch ErrorCode(err) {
 	case "DOMAIN_NOT_FOUND", "RECORD_NOT_FOUND", "INVALID_RECORD_ID":
@@ -216,8 +213,7 @@ func IsNotFound(err error) bool {
 	return false
 }
 
-// as is errors.As specialised to *Error, kept local so callers do not need to
-// import errors just to inspect a code.
+// as is errors.As specialised to *Error.
 func as(err error, target **Error) bool {
 	for err != nil {
 		if e, ok := err.(*Error); ok { //nolint:errorlint // unwrap loop below
@@ -233,14 +229,12 @@ func as(err error, target **Error) bool {
 	return false
 }
 
-// get performs an idempotent read.
 func (c *Client) get(ctx context.Context, path string, query url.Values, out any) error {
 	return c.do(ctx, http.MethodGet, path, query, nil, out)
 }
 
-// post performs a write. Every POST carries an Idempotency-Key so that a
-// retried apply cannot apply the same change twice within Porkbun's replay
-// window.
+// post performs a write. Every POST carries an Idempotency-Key, generated
+// once per call so that it stays constant across this client's own retries.
 func (c *Client) post(ctx context.Context, path string, body any, out any) error {
 	return c.do(ctx, http.MethodPost, path, nil, body, out)
 }

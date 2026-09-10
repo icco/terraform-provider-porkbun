@@ -144,7 +144,7 @@ func TestUpdateNameserversSendsNormalizedSet(t *testing.T) {
 		t.Errorf("path = %s", path)
 	}
 	if idem == "" {
-		t.Error("POST must carry an Idempotency-Key so a retried apply cannot apply twice")
+		t.Error("POST must carry an Idempotency-Key so a retry cannot apply the change twice")
 	}
 	ns, _ := body["ns"].([]any)
 	if len(ns) != 2 || ns[0] != "ns1.example.com" || ns[1] != "ns2.example.com" {

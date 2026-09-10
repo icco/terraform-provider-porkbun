@@ -37,8 +37,8 @@ func (d *domainNameserversDataSource) Metadata(_ context.Context, req datasource
 func (d *domainNameserversDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Reads the nameservers a domain is currently delegated to at the registry, without managing " +
-			"them. Useful for auditing a delegation before migrating it into Terraform, and for asserting the switch " +
-			"landed afterwards.",
+			"them. Useful for auditing a delegation before adopting it into Terraform, or for checking that a switch " +
+			"landed.",
 		Attributes: map[string]schema.Attribute{
 			"domain": schema.StringAttribute{
 				MarkdownDescription: "The domain to read, e.g. `example.com`.",
@@ -46,9 +46,10 @@ func (d *domainNameserversDataSource) Schema(_ context.Context, _ datasource.Sch
 				Validators:          []validator.String{stringvalidator.LengthAtLeast(3)},
 			},
 			"nameservers": schema.SetAttribute{
-				MarkdownDescription: "The nameserver hostnames the registry lists, lowercased and without trailing dots.",
-				Computed:            true,
-				ElementType:         types.StringType,
+				MarkdownDescription: "The nameserver hostnames the registry lists, lowercased, sorted and without " +
+					"trailing dots.",
+				Computed:    true,
+				ElementType: types.StringType,
 			},
 		},
 	}

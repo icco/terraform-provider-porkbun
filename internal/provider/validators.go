@@ -40,14 +40,14 @@ func (canonicalDomain) ValidateString(_ context.Context, req validator.StringReq
 	}
 	in := req.ConfigValue.ValueString()
 
-	var problem, want string
+	var problem string
 	switch {
 	case strings.TrimSpace(in) != in:
-		problem, want = "has leading or trailing whitespace", strings.TrimSpace(in)
+		problem = "has leading or trailing whitespace"
 	case strings.HasSuffix(in, "."):
-		problem, want = "is fully qualified with a trailing dot", strings.TrimSuffix(in, ".")
+		problem = "is fully qualified with a trailing dot"
 	case strings.ToLower(in) != in:
-		problem, want = "is not lowercase", strings.ToLower(in)
+		problem = "is not lowercase"
 	default:
 		return
 	}
@@ -58,6 +58,6 @@ func (canonicalDomain) ValidateString(_ context.Context, req validator.StringReq
 		"The domain \""+in+"\" "+problem+". Write it as \""+strings.ToLower(strings.TrimSuffix(strings.TrimSpace(in), "."))+"\".\n\n"+
 			"DNS names are case-insensitive and the trailing dot is implied, but Terraform compares this attribute "+
 			"literally: a respelling would plan a replacement, and two resources spelled differently would silently "+
-			"manage the same delegation. Suggested value: \""+want+"\".",
+			"manage the same delegation.",
 	)
 }

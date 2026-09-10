@@ -6,45 +6,31 @@ description: |-
 
 # Porkbun Provider
 
-Manage [Porkbun](https://porkbun.com) domains from Terraform.
+Manage [Porkbun](https://porkbun.com) domains from Terraform: the nameservers a domain is delegated to at the registry, and DNS records for zones still hosted at Porkbun.
 
-The reason this provider exists is `porkbun_domain_nameservers`. If your
-domains are registered at Porkbun but their zones live somewhere else — Cloud
-DNS, Route 53, anywhere — the delegation is the one piece that otherwise has
-to be clicked through the Porkbun web UI on every change.
+`porkbun_domain_nameservers` is the reason this provider exists. When a domain is registered at Porkbun but its zone lives elsewhere — Cloud DNS, Route 53, anywhere — the delegation is otherwise a manual edit in the Porkbun web UI on every change.
 
-Nameservers are modelled as a **set**, and compared ignoring case, trailing
-dots and ordering, so another provider's `name_servers` output can be passed
-straight through. An NS RRset is unordered (RFC 1034/2181) and registries
-return it in whatever order they like.
+```terraform
+resource "porkbun_domain_nameservers" "example" {
+  domain      = "example.com"
+  nameservers = google_dns_managed_zone.example.name_servers
+}
+```
+
+Nameservers are a set, compared ignoring case, trailing dots and ordering, so another provider's `name_servers` output can be passed straight through without a permanent diff.
 
 ## Example Usage
 
 {{ tffile "examples/provider/provider.tf" }}
 
-## Before your first apply
-
-1. **Enable API access** for the account at
-   [porkbun.com/account/api](https://porkbun.com/account/api), then opt in per
-   domain, or globally with "Opt In All Domains". An API key cannot operate on
-   a domain that has not opted in, however well scoped it is. The
-   `porkbun_domains` data source filtered on `api_access = true` verifies this
-   for free before a wide apply.
-2. **Check DNSSEC.** If a DS record exists at the registry and the new
-   nameservers do not serve the matching signed zone, every validating
-   resolver returns SERVFAIL the moment the delegation changes. This is the
-   only failure mode here that takes a domain completely dark rather than
-   merely stale.
-3. **Avoid an IP allowlist on the API key** — CI runner addresses are not
-   stable, and the result is `IP_NOT_ALLOWED`. Scope the key by domain.
-
 ## Authentication
 
-Credentials come from the provider configuration, or from the
-`PORKBUN_API_KEY` and `PORKBUN_SECRET_KEY` environment variables. They are
-sent as `X-API-Key` and `X-Secret-API-Key` headers, never in a request body.
+Credentials come from the provider configuration, or from the `PORKBUN_API_KEY` and `PORKBUN_SECRET_KEY` environment variables. They are sent as `X-API-Key` and `X-Secret-API-Key` headers, never in a request body.
 
-From an IPv6-only network, set `base_url` to
-`https://api-ipv4.porkbun.com/api/json/v3`.
+## Before your first apply
+
+1. **Enable API access** for the account at [porkbun.com/account/api](https://porkbun.com/account/api), then opt in per domain, or globally with "Opt In All Domains". An API key cannot operate on a domain that has not opted in, however well scoped it is. The `porkbun_domains` data source filtered on `api_access = true` lists the domains a key can actually use.
+2. **Check DNSSEC.** If a DS record exists at the registry and the new nameservers do not serve the matching signed zone, every validating resolver returns SERVFAIL the moment the delegation changes.
+3. **Avoid an IP allowlist on the API key** — CI runner addresses are not stable, and the result is `IP_NOT_ALLOWED`. Scope the key by domain.
 
 {{ .SchemaMarkdown | trimspace }}

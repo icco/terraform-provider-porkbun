@@ -59,12 +59,12 @@ func (p *porkbunProvider) Schema(_ context.Context, _ provider.SchemaRequest, re
 			},
 			"base_url": schema.StringAttribute{
 				MarkdownDescription: "Override the Porkbun API root. Defaults to `" + porkbun.DefaultBaseURL + "`. " +
-					"Use `https://api-ipv4.porkbun.com/api/json/v3` from IPv6-only networks, or the sandbox root when testing. " +
+					"Use `https://api-ipv4.porkbun.com/api/json/v3`, which resolves A records only, from networks without working IPv6. " +
 					"May also be set with the `PORKBUN_BASE_URL` environment variable.",
 				Optional: true,
 			},
 			"max_retries": schema.Int64Attribute{
-				MarkdownDescription: "How many times to retry a failed API call. Defaults to `3`. " +
+				MarkdownDescription: "How many times to retry a failed API call. Defaults to `3`; `0` disables retries. " +
 					"May also be set with the `PORKBUN_MAX_RETRIES` environment variable.",
 				Optional:   true,
 				Validators: []validator.Int64{int64validator.AtLeast(0)},
@@ -80,10 +80,9 @@ func (p *porkbunProvider) Configure(ctx context.Context, req provider.ConfigureR
 		return
 	}
 
-	// Unknown values at plan time (a credential wired from another resource)
-	// must stop configuration with an error. The previous implementation
-	// emitted a warning and returned, which left every resource holding a nil
-	// client and panicking on first use.
+	// An unknown value at plan time (a credential wired from another resource)
+	// must be an error, not a warning: warning and returning leaves every
+	// resource holding a nil client, which panics on first use.
 	for name, attr := range map[string]types.String{
 		"api_key":    config.APIKey,
 		"secret_key": config.SecretKey,

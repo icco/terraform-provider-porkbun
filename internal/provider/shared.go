@@ -44,13 +44,11 @@ func clientFromDataSourceConfigure(_ context.Context, req datasource.ConfigureRe
 	return client
 }
 
-// apiErrorDiagnostic renders a Porkbun error with its machine-readable code
-// front and centre, and appends the remediation that code actually calls for.
+// apiErrorDiagnostic appends the remediation a Porkbun error code calls for.
 //
-// Every code branched on here is one the Porkbun v3 spec documents; guessing
-// at plausible-looking names (INVALID_API_KEY, UNAUTHORIZED) produces
-// remediation that never renders, which is worse than none because it reads
-// as covered.
+// Only codes the v3 spec documents are branched on: an invented but
+// plausible name (INVALID_API_KEY, UNAUTHORIZED) renders no remediation at
+// all while making the case look covered.
 func apiErrorDiagnostic(summary string, err error) diag.Diagnostic {
 	detail := err.Error()
 	switch porkbun.ErrorCode(err) {

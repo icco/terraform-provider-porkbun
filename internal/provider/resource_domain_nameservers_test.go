@@ -35,9 +35,8 @@ resource "porkbun_domain_nameservers" "test" {
 //
 // The fake deliberately answers getNs with the delegation reversed,
 // uppercased and dot-suffixed. If the provider modelled nameservers as an
-// ordered list, or normalized on only one side, this test would fail with a
-// non-empty plan — which is precisely what would happen on all 27 real
-// domains, on every single run.
+// ordered list, or normalized on only one side, this test fails with a
+// non-empty plan — which is what a real domain would do on every run.
 func TestAccDomainNameserversLifecycle(t *testing.T) {
 	fake, url := newFakeAPI(t)
 	fake.seedDomain("trout.quest", "curitiba.ns.porkbun.com", "fortaleza.ns.porkbun.com")
@@ -66,16 +65,16 @@ func TestAccDomainNameserversLifecycle(t *testing.T) {
 						tfjsonpath.New("nameservers"), knownvalue.SetSizeExact(4)),
 				},
 			},
-			// Refresh and re-plan against a registry that scrambles the
-			// order, case and trailing dots. The plan must be empty.
+			// A registry that scrambles order, case and trailing dots is
+			// not a change.
 			{
 				Config: nameserversConfig(url, "trout.quest", cloudDNS),
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
 				},
 			},
-			// The registry re-orders and re-cases the RRset on its own,
-			// which it is entitled to do. Still not a change.
+			// Nor is the registry re-ordering the RRset on its own, which
+			// it is entitled to do.
 			{
 				PreConfig: func() { fake.churnNameservers("trout.quest") },
 				Config:    nameserversConfig(url, "trout.quest", cloudDNS),
@@ -83,10 +82,9 @@ func TestAccDomainNameserversLifecycle(t *testing.T) {
 					PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
 				},
 			},
-			// The same delegation respelled in the configuration — different
-			// order, different case, no trailing dots — is not a change
-			// either. This is what makes an imported domain adoptable
-			// without a cosmetic first apply.
+			// Nor is the same delegation respelled in the configuration.
+			// This is what makes an imported domain adoptable without a
+			// cosmetic first apply.
 			{
 				Config: nameserversConfig(url, "trout.quest", []string{
 					"NS-CLOUD-A3.googledomains.com",
@@ -105,11 +103,10 @@ func TestAccDomainNameserversLifecycle(t *testing.T) {
 						tfjsonpath.New("nameservers"), knownvalue.SetSizeExact(2)),
 				},
 			},
-			// Import by ID. State after import holds the registry's own
-			// normalized spelling, because an import has no configuration to
-			// take a spelling from; ImportStateVerify would therefore trip
-			// over the trailing dots this test's config uses, so the imported
-			// attributes are checked directly instead.
+			// Import by ID. An import has no configuration to take a
+			// spelling from, so state holds the registry's normalized
+			// spelling and ImportStateVerify would trip over this config's
+			// trailing dots; check the imported attributes directly.
 			{
 				ResourceName:     "porkbun_domain_nameservers.test",
 				ImportState:      true,
@@ -117,7 +114,7 @@ func TestAccDomainNameserversLifecycle(t *testing.T) {
 				ImportStateCheck: checkImportedNameservers("trout.quest", "ns-cloud-b1.googledomains.com", "ns-cloud-b2.googledomains.com"),
 			},
 			// Import by resource identity (Terraform 1.12+), the mechanism a
-			// fleet of already hand-configured domains migrates through.
+			// fleet of hand-configured domains migrates through.
 			{
 				ResourceName:     "porkbun_domain_nameservers.test",
 				ImportState:      true,
@@ -207,17 +204,12 @@ func TestAccDomainNameserversTooFew(t *testing.T) {
 	})
 }
 
-// TestAccDomainNameserversStaleReadBack covers the registry not yet showing
-// the delegation that was just written.
+// TestAccDomainNameserversStaleReadBack covers getNs still reporting the
+// previous delegation right after updateNs succeeded.
 //
-// /domain/getNs reads live from the registry and propagation is not
-// synchronous, so the read-back immediately after updateNs can still return
-// the previous set. `nameservers` is Required, so if the provider stored
-// that stale answer Terraform core would abort the apply with "Provider
-// produced inconsistent result after apply … This is a bug in the provider"
-// — on a change that in fact succeeded. The apply must complete, state must
-// hold the configured value, and the following plan must be empty once the
-// registry catches up.
+// Storing that stale answer would abort the apply with "Provider produced
+// inconsistent result after apply" (see write). The apply must complete,
+// state must hold the configured value, and the next plan must be empty.
 func TestAccDomainNameserversStaleReadBack(t *testing.T) {
 	fake, url := newFakeAPI(t)
 	fake.seedDomain("laggy.quest", "curitiba.ns.porkbun.com", "fortaleza.ns.porkbun.com")
@@ -265,9 +257,9 @@ func TestAccDomainNameserversStaleReadBack(t *testing.T) {
 // TestAccDomainNameserversCollapsingDuplicates covers a config that passes
 // the element-count validator and still delegates to one nameserver.
 //
-// Two spellings of one hostname are two strings, so setvalidator.SizeBetween
-// is satisfied; NormalizeNameservers folds them to one before the payload is
-// built. Nothing downstream would notice — Read normalizes both sides, so
+// Two spellings of one hostname satisfy setvalidator.SizeBetween, and
+// NormalizeNameservers folds them to one before the payload is built.
+// Nothing downstream would notice: Read normalizes both sides, so
 // two-in-state against one-at-the-registry compares equal forever.
 func TestAccDomainNameserversCollapsingDuplicates(t *testing.T) {
 	fake, url := newFakeAPI(t)

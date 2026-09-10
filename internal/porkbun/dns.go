@@ -13,12 +13,10 @@ var RecordTypes = []string{
 	"A", "AAAA", "MX", "CNAME", "ALIAS", "TXT", "NS", "SRV", "TLSA", "CAA", "SSHFP", "HTTPS", "SVCB",
 }
 
-// Record is a DNS record as Porkbun returns it from /dns/retrieve.
-//
-// The API is internally inconsistent about types: writes take ttl and prio as
-// integers, reads hand them back as strings (and prio may be null). flexInt
-// absorbs the difference so the provider can expose plain numbers and avoid a
-// permanent diff on every record.
+// Record is a DNS record as Porkbun returns it from /dns/retrieve. Writes
+// take ttl and prio as integers but reads hand them back as strings, and
+// prio may be null; flexInt absorbs that so the provider can expose plain
+// numbers without a permanent diff on every record.
 type Record struct {
 	ID string `json:"id"`
 	// Name is fully qualified on read ("www.example.com"), but writes take the
