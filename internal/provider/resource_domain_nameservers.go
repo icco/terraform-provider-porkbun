@@ -29,6 +29,8 @@ var (
 	_ resource.ResourceWithValidateConfig = (*domainNameserversResource)(nil)
 )
 
+func init() { registerResource(NewDomainNameserversResource) }
+
 // NewDomainNameserversResource manages registry nameserver delegation.
 func NewDomainNameserversResource() resource.Resource { return &domainNameserversResource{} }
 

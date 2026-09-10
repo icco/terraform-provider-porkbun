@@ -31,6 +31,8 @@ var (
 	_ resource.ResourceWithIdentity    = (*dnsRecordResource)(nil)
 )
 
+func init() { registerResource(NewDNSRecordResource) }
+
 // NewDNSRecordResource manages a record in a Porkbun-hosted DNS zone.
 func NewDNSRecordResource() resource.Resource { return &dnsRecordResource{} }
 

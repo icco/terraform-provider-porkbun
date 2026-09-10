@@ -20,6 +20,8 @@ var (
 	_ datasource.DataSourceWithConfigure = (*domainDataSource)(nil)
 )
 
+func init() { registerDataSource(NewDomainDataSource) }
+
 // NewDomainDataSource reads metadata for one domain in the account.
 func NewDomainDataSource() datasource.DataSource { return &domainDataSource{} }
 
