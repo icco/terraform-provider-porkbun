@@ -45,7 +45,8 @@ func (p *porkbunProvider) Metadata(_ context.Context, _ provider.MetadataRequest
 
 func (p *porkbunProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Manage [Porkbun](https://porkbun.com) domains: registry nameserver delegation and DNS records.",
+		MarkdownDescription: "Manage [Porkbun](https://porkbun.com) domains from Terraform: registry nameserver " +
+			"delegation, and DNS records for zones hosted at Porkbun.",
 		Attributes: map[string]schema.Attribute{
 			"api_key": schema.StringAttribute{
 				MarkdownDescription: "Porkbun API key (`pk1_...`). May also be set with the `PORKBUN_API_KEY` environment variable.",

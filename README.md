@@ -30,18 +30,20 @@ resource "porkbun_domain_nameservers" "example" {
 
 Nameservers are a set, compared ignoring case, trailing dots and ordering, so another provider's `name_servers` output can be passed straight through without a permanent diff.
 
+Domains already delegated by hand are adopted with `terraform import` or an `import` block rather than reapplied — see [Import](./docs/resources/domain_nameservers.md#import).
+
 Full reference: [`docs/`](./docs).
 
 ## Before your first apply
 
-1. **Enable API access** for the account at [porkbun.com/account/api](https://porkbun.com/account/api), then opt in per domain — or globally, with "Opt In All Domains". A key cannot touch a domain that has not opted in, however well scoped it is. `data.porkbun_domains` filtered on `api_access = true` lists the domains a key can actually use.
-2. **Check DNSSEC.** If a DS record exists at the registry and the new nameservers do not serve the matching signed zone, every validating resolver returns SERVFAIL the moment the delegation changes. This is the only failure mode here that takes a domain completely dark rather than merely stale. Clear the DS record before or with the switch.
+1. **Enable API access** for the account at [porkbun.com/account/api](https://porkbun.com/account/api), then opt in per domain at [porkbun.com/account/domainsSpeedy](https://porkbun.com/account/domainsSpeedy) — or account-wide, with "Opt In All Domains" on the API page. A key cannot touch a domain that has not opted in, however well scoped it is. The `porkbun_domains` data source filtered on `api_access = true` lists the domains a key can actually use.
+2. **Check DNSSEC.** If a DS record exists at the registry and the new nameservers do not serve the matching signed zone, every validating resolver returns SERVFAIL the moment the delegation changes. This is the only failure mode here that takes a domain completely dark rather than merely stale. Clear the DS record in the Porkbun web UI before or with the switch; this provider does not manage DNSSEC.
 3. **Do not put an IP allowlist on the API key.** CI runner addresses are not stable and you will get `IP_NOT_ALLOWED`. Scope the key by domain instead.
 4. **Try one low-stakes domain first**, confirm with `dig NS`, then go wide.
 
 ## Two things that will surprise you
 
-**`terraform destroy` does not restore Porkbun's nameservers.** A registered domain always has nameservers and Porkbun publishes no endpoint that unsets them. Destroying `porkbun_domain_nameservers` removes it from state, makes no API call, and emits a warning; a later apply adopts the existing delegation rather than resetting it.
+**`terraform destroy` does not restore Porkbun's nameservers.** A registered domain always has nameservers and Porkbun publishes no endpoint that unsets them. Destroying `porkbun_domain_nameservers` removes it from state, makes no API call, and emits a warning; the domain stays delegated where it is.
 
 **`porkbun_dns_record` does nothing for a domain delegated elsewhere.** Porkbun keeps its copy of the zone and still answers `SUCCESS` to writes against it, but no resolver asks Porkbun for that zone. The apply goes green and nothing changes. `data.porkbun_domain.<name>.not_local` tells you when you are in that state.
 
@@ -55,7 +57,7 @@ make testacc   # full lifecycle tests against an in-process fake API
 make docs      # regenerate docs/ with tfplugindocs
 ```
 
-No Porkbun credentials are needed for any of it. `make testacc` drives a real Terraform CLI, which the test harness downloads if one is not on `PATH`.
+No Porkbun credentials are needed for any of it, though `make test` does reach the network for the `/mock` decode tests — `go test -short ./...` skips those. `make testacc` drives a real Terraform CLI, which the test harness downloads if one is not on `PATH`.
 
 To try the provider against real infrastructure before it is released, use a [development override](https://developer.hashicorp.com/terraform/cli/config/config-file#development-overrides-for-provider-developers):
 

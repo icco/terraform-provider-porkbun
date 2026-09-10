@@ -76,11 +76,12 @@ func domainToModel(d porkbun.Domain) domainModel {
 // of porkbun_domains.details.
 func domainSchemaAttributes(computedDomain bool) map[string]schema.Attribute {
 	domainAttr := schema.StringAttribute{
-		MarkdownDescription: "The fully qualified domain name.",
+		MarkdownDescription: "The domain name.",
 	}
 	if computedDomain {
 		domainAttr.Computed = true
 	} else {
+		domainAttr.MarkdownDescription = "The domain to read, e.g. `example.com`. Lowercase, with no trailing dot."
 		domainAttr.Required = true
 		domainAttr.Validators = []validator.String{stringvalidator.LengthAtLeast(3), canonicalDomain{}}
 	}
@@ -100,8 +101,9 @@ func domainSchemaAttributes(computedDomain bool) map[string]schema.Attribute {
 		"api_access": schema.BoolAttribute{
 			Computed: true,
 			MarkdownDescription: "Whether this domain is opted in to API access. **A key cannot operate on a domain " +
-				"where this is false**, however well scoped it is. Toggle it per domain at porkbun.com/account, or " +
-				"globally with the \"Opt In All Domains\" API setting.",
+				"where this is false**, however well scoped it is. Toggle it per domain at " +
+				"porkbun.com/account/domainsSpeedy, or account-wide with the \"Opt In All Domains\" setting at " +
+				"porkbun.com/account/api.",
 		},
 		"not_local": schema.BoolAttribute{
 			Computed: true,

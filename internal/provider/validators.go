@@ -12,12 +12,16 @@ var _ validator.String = canonicalDomain{}
 // canonicalDomain requires a domain to be written the one way that round
 // trips: trimmed, lowercase, and without the root label's trailing dot.
 //
-// DNS names are case-insensitive, Terraform is not. `domain` forces
-// replacement and core compares it literally, so respelling "example.com" as
-// "Example.com" plans a destroy-and-create for a cosmetic edit. Worse,
-// nothing otherwise stops two differently spelled resources managing the
-// same registry delegation and fighting over it; the provider never sees the
-// two as related.
+// DNS names are case-insensitive, Terraform is not. On the resources
+// `domain` forces replacement and core compares it literally, so respelling
+// "example.com" as "Example.com" plans a destroy-and-create for a cosmetic
+// edit. Worse, nothing otherwise stops two differently spelled resources
+// managing the same registry delegation and fighting over it; the provider
+// never sees the two as related.
+//
+// It is on the data source inputs too, where nothing is replaced, so that
+// one domain has one spelling everywhere in the provider. Do not remove it
+// there on the grounds that a data source has no state to churn.
 //
 // The nameserver set folds spellings instead, but only because a plan
 // modifier can fall back to the prior state value. On create there is no

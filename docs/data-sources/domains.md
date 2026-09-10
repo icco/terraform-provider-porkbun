@@ -62,10 +62,10 @@ data "porkbun_domains" "expiring" {
 
 Read-Only:
 
-- `api_access` (Boolean) Whether this domain is opted in to API access. **A key cannot operate on a domain where this is false**, however well scoped it is. Toggle it per domain at porkbun.com/account, or globally with the "Opt In All Domains" API setting.
+- `api_access` (Boolean) Whether this domain is opted in to API access. **A key cannot operate on a domain where this is false**, however well scoped it is. Toggle it per domain at porkbun.com/account/domainsSpeedy, or account-wide with the "Opt In All Domains" setting at porkbun.com/account/api.
 - `auto_renew` (Boolean) Whether auto-renew is enabled.
 - `create_date` (String) When the domain was registered, as Porkbun reports it.
-- `domain` (String) The fully qualified domain name.
+- `domain` (String) The domain name.
 - `expire_date` (String) When the registration expires, as Porkbun reports it.
 - `not_local` (Boolean) Whether the domain is delegated away from Porkbun's nameservers. When true, `porkbun_dns_record` still applies cleanly against Porkbun's copy of the zone, but no resolver ever queries it — the records have no effect.
 - `security_lock` (Boolean) Whether the registrar transfer lock is enabled.

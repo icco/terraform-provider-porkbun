@@ -5,7 +5,7 @@ subcategory: ""
 description: |-
   Sets the nameservers a domain is delegated to at the registry — the Terraform equivalent of editing a domain's nameservers in the Porkbun web UI.
   ~> terraform destroy does not restore Porkbun's nameservers. Porkbun has no endpoint that unsets a delegation, so destroying this resource makes no API call: it drops the resource from state and leaves the domain delegated exactly where it is.
-  ~> Repointing a DNSSEC-signed domain takes it completely dark on validating resolvers. If a DS record exists at Porkbun (/dns/getDnssecRecords) and the new nameservers do not serve the matching signed zone, clear the DS record before or with the switch.
+  ~> Repointing a DNSSEC-signed domain takes it completely dark on validating resolvers. If a DS record exists at Porkbun and the new nameservers do not serve the matching signed zone, clear the DS record before or with the switch. This provider does not manage DNSSEC: clear it in the Porkbun web UI.
 ---
 
 # porkbun_domain_nameservers (Resource)
@@ -14,7 +14,7 @@ Sets the nameservers a domain is delegated to at the registry — the Terraform 
 
 ~> **`terraform destroy` does not restore Porkbun's nameservers.** Porkbun has no endpoint that unsets a delegation, so destroying this resource makes no API call: it drops the resource from state and leaves the domain delegated exactly where it is.
 
-~> Repointing a DNSSEC-signed domain takes it **completely dark** on validating resolvers. If a DS record exists at Porkbun (`/dns/getDnssecRecords`) and the new nameservers do not serve the matching signed zone, clear the DS record before or with the switch.
+~> Repointing a DNSSEC-signed domain takes it **completely dark** on validating resolvers. If a DS record exists at Porkbun and the new nameservers do not serve the matching signed zone, clear the DS record before or with the switch. This provider does not manage DNSSEC: clear it in the Porkbun web UI.
 
 ## Example Usage
 
@@ -24,9 +24,6 @@ resource "porkbun_domain_nameservers" "trout_quest" {
   domain      = "trout.quest"
   nameservers = google_dns_managed_zone.trout_quest.name_servers
 }
-
-# Trailing dots, case and ordering are all ignored, so the raw output of
-# another provider can be passed straight through.
 
 # Managing a fleet from one map:
 resource "porkbun_domain_nameservers" "delegation" {
@@ -44,8 +41,8 @@ resource "porkbun_domain_nameservers" "delegation" {
 
 ### Required
 
-- `domain` (String) The domain to delegate, e.g. `example.com`. Must be in the authenticated Porkbun account with API access enabled for it. Must be lowercase with no trailing dot: the value is compared literally and forces replacement, so `Example.com` and `example.com` would be two resources fighting over one delegation.
-- `nameservers` (Set of String) The nameserver hostnames to delegate to, e.g. the `name_servers` output of a `google_dns_managed_zone`. Case, trailing dots and ordering are ignored, so another provider's output can be passed straight through. Between 2 and 13 distinct hostnames are required, counted after duplicate spellings collapse.
+- `domain` (String) The domain to delegate, e.g. `example.com`. Must be in the authenticated Porkbun account with API access enabled for it. Lowercase, with no trailing dot. Changing it replaces the resource.
+- `nameservers` (Set of String) The nameserver hostnames to delegate to, e.g. the `name_servers` output of a `google_dns_managed_zone`. Case, trailing dots and ordering are ignored, so another provider's output can be passed straight through. Between 2 and 13 hostnames.
 
 ### Read-Only
 
@@ -58,8 +55,7 @@ Import is supported using the following syntax:
 In Terraform v1.12.0 and later, the [`import` block](https://developer.hashicorp.com/terraform/language/import) can be used with the `identity` attribute, for example:
 
 ```terraform
-# Terraform 1.12 and later. This is the practical way to bring a fleet of
-# already hand-configured domains under management in one pass.
+# Terraform 1.12 and later. Adopt a delegation that was set up by hand.
 import {
   to = porkbun_domain_nameservers.trout_quest
 

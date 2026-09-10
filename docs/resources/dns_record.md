@@ -48,12 +48,12 @@ resource "porkbun_dns_record" "mail" {
 ### Required
 
 - `content` (String) The record value, e.g. `1.2.3.4` for an `A` record.
-- `domain` (String) The domain the record belongs to, e.g. `example.com`.
-- `type` (String) The DNS record type: one of `A`, `AAAA`, `MX`, `CNAME`, `ALIAS`, `TXT`, `NS`, `SRV`, `TLSA`, `CAA`, `SSHFP`, `HTTPS`, `SVCB`.
+- `domain` (String) The domain the record belongs to, e.g. `example.com`. Lowercase, with no trailing dot. Changing it replaces the record.
+- `type` (String) The DNS record type: one of `A`, `AAAA`, `MX`, `CNAME`, `ALIAS`, `TXT`, `NS`, `SRV`, `TLSA`, `CAA`, `SSHFP`, `HTTPS`, `SVCB`. Changing it replaces the record.
 
 ### Optional
 
-- `name` (String) The subdomain, without the domain itself: `www`, `*` for a wildcard, or the empty string for the zone apex. Defaults to the apex.
+- `name` (String) The subdomain, without the domain itself: `www`, `*` for a wildcard, or the empty string for the zone apex. Defaults to the apex. Changing it replaces the record.
 - `notes` (String) Free-text notes stored with the record at Porkbun. Not served in DNS.
 - `prio` (Number) Priority, used by `MX` and `SRV` records. Defaults to 0.
 - `ttl` (Number) Time to live, in seconds. Porkbun's minimum is 600, which is also the default.
@@ -86,7 +86,7 @@ import {
 #### Required
 
 - `domain` (String) The domain the record belongs to.
-- `record_id` (String) The Porkbun record ID.
+- `record_id` (String) The Porkbun record ID, a decimal integer. Record IDs are visible in the Porkbun DNS UI.
 
 In Terraform v1.5.0 and later, the [`import` block](https://developer.hashicorp.com/terraform/language/import) can be used with the `id` attribute, for example:
 

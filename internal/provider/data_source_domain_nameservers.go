@@ -41,13 +41,13 @@ func (d *domainNameserversDataSource) Schema(_ context.Context, _ datasource.Sch
 			"landed.",
 		Attributes: map[string]schema.Attribute{
 			"domain": schema.StringAttribute{
-				MarkdownDescription: "The domain to read, e.g. `example.com`.",
+				MarkdownDescription: "The domain to read, e.g. `example.com`. Lowercase, with no trailing dot.",
 				Required:            true,
 				Validators:          []validator.String{stringvalidator.LengthAtLeast(3), canonicalDomain{}},
 			},
 			"nameservers": schema.SetAttribute{
-				MarkdownDescription: "The nameserver hostnames the registry lists, lowercased, sorted and without " +
-					"trailing dots.",
+				MarkdownDescription: "The nameserver hostnames the registry lists, lowercased and without trailing " +
+					"dots.",
 				Computed:    true,
 				ElementType: types.StringType,
 			},

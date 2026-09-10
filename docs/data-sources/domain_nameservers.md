@@ -28,8 +28,8 @@ output "current_delegation" {
 
 ### Required
 
-- `domain` (String) The domain to read, e.g. `example.com`.
+- `domain` (String) The domain to read, e.g. `example.com`. Lowercase, with no trailing dot.
 
 ### Read-Only
 
-- `nameservers` (Set of String) The nameserver hostnames the registry lists, lowercased, sorted and without trailing dots.
+- `nameservers` (Set of String) The nameserver hostnames the registry lists, lowercased and without trailing dots.

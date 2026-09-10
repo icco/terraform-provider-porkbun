@@ -20,7 +20,7 @@ BREAKING CHANGES (versus upstream):
 * The provider address is now `registry.terraform.io/icco/porkbun`.
 * Destroying `porkbun_domain_nameservers` deliberately makes no API call: the domain stays delegated where it is. See the resource documentation.
 
-BUG FIXES (all inherited from upstream):
+BUG FIXES (all of these bugs were inherited from upstream):
 
 * `porkbun_dns_record` Create no longer writes `id = "0"` into state after a failed create; the missing `return` after the error diagnostic is fixed.
 * `porkbun_dns_record` Read now refreshes every attribute. It previously refreshed only `name`, so drift in `content`, `ttl`, `type`, `prio` or `notes` was invisible forever.

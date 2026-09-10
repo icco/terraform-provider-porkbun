@@ -19,6 +19,10 @@ resource "porkbun_domain_nameservers" "example" {
 
 Nameservers are a set, compared ignoring case, trailing dots and ordering, so another provider's `name_servers` output can be passed straight through without a permanent diff.
 
+## Requirements
+
+Terraform 1.0 or later: the provider speaks plugin protocol 6. `import` blocks need Terraform 1.5 or later, and importing by `identity` needs 1.12 or later.
+
 ## Example Usage
 
 {{ tffile "examples/provider/provider.tf" }}
@@ -29,8 +33,9 @@ Credentials come from the provider configuration, or from the `PORKBUN_API_KEY` 
 
 ## Before your first apply
 
-1. **Enable API access** for the account at [porkbun.com/account/api](https://porkbun.com/account/api), then opt in per domain, or globally with "Opt In All Domains". An API key cannot operate on a domain that has not opted in, however well scoped it is. The `porkbun_domains` data source filtered on `api_access = true` lists the domains a key can actually use.
-2. **Check DNSSEC.** If a DS record exists at the registry and the new nameservers do not serve the matching signed zone, every validating resolver returns SERVFAIL the moment the delegation changes.
-3. **Avoid an IP allowlist on the API key** — CI runner addresses are not stable, and the result is `IP_NOT_ALLOWED`. Scope the key by domain.
+1. **Enable API access** for the account at [porkbun.com/account/api](https://porkbun.com/account/api), then opt in per domain at [porkbun.com/account/domainsSpeedy](https://porkbun.com/account/domainsSpeedy) — or account-wide, with "Opt In All Domains" on the API page. A key cannot touch a domain that has not opted in, however well scoped it is. The `porkbun_domains` data source filtered on `api_access = true` lists the domains a key can actually use.
+2. **Check DNSSEC.** If a DS record exists at the registry and the new nameservers do not serve the matching signed zone, every validating resolver returns SERVFAIL the moment the delegation changes. This is the only failure mode here that takes a domain completely dark rather than merely stale. Clear the DS record in the Porkbun web UI before or with the switch; this provider does not manage DNSSEC.
+3. **Do not put an IP allowlist on the API key.** CI runner addresses are not stable and you will get `IP_NOT_ALLOWED`. Scope the key by domain instead.
+4. **Try one low-stakes domain first**, confirm with `dig NS`, then go wide.
 
 {{ .SchemaMarkdown | trimspace }}

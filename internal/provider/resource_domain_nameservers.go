@@ -58,8 +58,8 @@ func (r *domainNameserversResource) Schema(_ context.Context, _ resource.SchemaR
 			"delegation, so destroying this resource makes no API call: it drops the resource from state and leaves " +
 			"the domain delegated exactly where it is.\n\n" +
 			"~> Repointing a DNSSEC-signed domain takes it **completely dark** on validating resolvers. If a DS " +
-			"record exists at Porkbun (`/dns/getDnssecRecords`) and the new nameservers do not serve the matching " +
-			"signed zone, clear the DS record before or with the switch.",
+			"record exists at Porkbun and the new nameservers do not serve the matching signed zone, clear the DS " +
+			"record before or with the switch. This provider does not manage DNSSEC: clear it in the Porkbun web UI.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "The domain name. Always equal to `domain`.",
@@ -68,9 +68,8 @@ func (r *domainNameserversResource) Schema(_ context.Context, _ resource.SchemaR
 			},
 			"domain": schema.StringAttribute{
 				MarkdownDescription: "The domain to delegate, e.g. `example.com`. Must be in the authenticated " +
-					"Porkbun account with API access enabled for it. Must be lowercase with no trailing dot: the " +
-					"value is compared literally and forces replacement, so `Example.com` and `example.com` would be " +
-					"two resources fighting over one delegation.",
+					"Porkbun account with API access enabled for it. Lowercase, with no trailing dot. Changing it " +
+					"replaces the resource.",
 				Required:      true,
 				Validators:    []validator.String{stringvalidator.LengthAtLeast(3), canonicalDomain{}},
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
@@ -78,8 +77,7 @@ func (r *domainNameserversResource) Schema(_ context.Context, _ resource.SchemaR
 			"nameservers": schema.SetAttribute{
 				MarkdownDescription: "The nameserver hostnames to delegate to, e.g. the `name_servers` output of a " +
 					"`google_dns_managed_zone`. Case, trailing dots and ordering are ignored, so another provider's " +
-					"output can be passed straight through. Between 2 and 13 hostnames; the minimum is counted after " +
-					"duplicate spellings of the same hostname collapse.",
+					"output can be passed straight through. Between 2 and 13 hostnames.",
 				Required:    true,
 				ElementType: types.StringType,
 				Validators: []validator.Set{

@@ -73,14 +73,15 @@ func (r *dnsRecordResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"domain": schema.StringAttribute{
-				MarkdownDescription: "The domain the record belongs to, e.g. `example.com`.",
-				Required:            true,
-				Validators:          []validator.String{stringvalidator.LengthAtLeast(3), canonicalDomain{}},
-				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplaceIfConfigured()},
+				MarkdownDescription: "The domain the record belongs to, e.g. `example.com`. Lowercase, with no " +
+					"trailing dot. Changing it replaces the record.",
+				Required:      true,
+				Validators:    []validator.String{stringvalidator.LengthAtLeast(3), canonicalDomain{}},
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplaceIfConfigured()},
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "The subdomain, without the domain itself: `www`, `*` for a wildcard, or the " +
-					"empty string for the zone apex. Defaults to the apex.",
+					"empty string for the zone apex. Defaults to the apex. Changing it replaces the record.",
 				Optional:      true,
 				Computed:      true,
 				Default:       stringdefault.StaticString(""),
@@ -88,7 +89,7 @@ func (r *dnsRecordResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			},
 			"type": schema.StringAttribute{
 				MarkdownDescription: "The DNS record type: one of `A`, `AAAA`, `MX`, `CNAME`, `ALIAS`, `TXT`, `NS`, " +
-					"`SRV`, `TLSA`, `CAA`, `SSHFP`, `HTTPS`, `SVCB`.",
+					"`SRV`, `TLSA`, `CAA`, `SSHFP`, `HTTPS`, `SVCB`. Changing it replaces the record.",
 				Required:      true,
 				Validators:    []validator.String{stringvalidator.OneOf(porkbun.RecordTypes...)},
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
@@ -130,7 +131,7 @@ func (r *dnsRecordResource) IdentitySchema(_ context.Context, _ resource.Identit
 			},
 			"record_id": identityschema.StringAttribute{
 				RequiredForImport: true,
-				Description:       "The Porkbun record ID.",
+				Description:       "The Porkbun record ID, a decimal integer. Record IDs are visible in the Porkbun DNS UI.",
 			},
 		},
 	}

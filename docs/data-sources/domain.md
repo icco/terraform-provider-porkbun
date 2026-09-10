@@ -29,11 +29,11 @@ output "dns_is_hosted_at_porkbun" {
 
 ### Required
 
-- `domain` (String) The fully qualified domain name.
+- `domain` (String) The domain to read, e.g. `example.com`. Lowercase, with no trailing dot.
 
 ### Read-Only
 
-- `api_access` (Boolean) Whether this domain is opted in to API access. **A key cannot operate on a domain where this is false**, however well scoped it is. Toggle it per domain at porkbun.com/account, or globally with the "Opt In All Domains" API setting.
+- `api_access` (Boolean) Whether this domain is opted in to API access. **A key cannot operate on a domain where this is false**, however well scoped it is. Toggle it per domain at porkbun.com/account/domainsSpeedy, or account-wide with the "Opt In All Domains" setting at porkbun.com/account/api.
 - `auto_renew` (Boolean) Whether auto-renew is enabled.
 - `create_date` (String) When the domain was registered, as Porkbun reports it.
 - `expire_date` (String) When the registration expires, as Porkbun reports it.

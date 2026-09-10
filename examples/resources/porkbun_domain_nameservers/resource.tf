@@ -4,9 +4,6 @@ resource "porkbun_domain_nameservers" "trout_quest" {
   nameservers = google_dns_managed_zone.trout_quest.name_servers
 }
 
-# Trailing dots, case and ordering are all ignored, so the raw output of
-# another provider can be passed straight through.
-
 # Managing a fleet from one map:
 resource "porkbun_domain_nameservers" "delegation" {
   for_each = {

@@ -4,7 +4,9 @@ A published Terraform Registry version can never be unpublished or replaced. Eve
 
 ## Cut a release
 
-1. Rehearse locally, with the GoReleaser version `.github/workflows/release.yml` pins:
+1. Smoke-test against a real domain through a `dev_overrides` block. No automated test touches the live API — the client decode tests run against Porkbun's `/mock` endpoint and the lifecycle tests against an in-process fake — so a real delegation change is only ever exercised by hand.
+
+2. Rehearse locally, with the GoReleaser version `.github/workflows/release.yml` pins:
 
    ```sh
    goreleaser check
@@ -15,13 +17,13 @@ A published Terraform Registry version can never be unpublished or replaced. Eve
 
    Check `dist/`: one zip per platform, `gpg --verify dist/*_SHA256SUMS.sig dist/*_SHA256SUMS` passes, `unzip -l` shows a binary named `terraform-provider-porkbun_v1.0.0`, and `file dist/*.sig` says `data` — an armored signature is rejected by the registry.
 
-2. Rehearse in CI: run the **Release** workflow via `workflow_dispatch` with `dry_run` checked. Same runner, same GPG import, same secrets, no publish.
+3. Rehearse in CI: run the **Release** workflow via `workflow_dispatch` with `dry_run` checked. Same runner, same GPG import, same secrets, no publish.
 
-3. Push the tag. The workflow builds a **draft** GitHub release.
+4. Push the tag. The workflow builds a **draft** GitHub release.
 
-4. Inspect the draft, then publish it. The registry ingests on publish.
+5. Inspect the draft, then publish it. The registry ingests on publish.
 
-5. Submit to the OpenTofu registry: open a provider issue at [opentofu/registry](https://github.com/opentofu/registry/issues/new/choose). This is a separate registry, not a mirror. `tofu` rewrites `registry.terraform.io/*` to `registry.opentofu.org/*`, so a provider published only to HashiCorp's registry is uninstallable under OpenTofu — which is what icco.me runs locally, even though its CI uses Terraform.
+6. Submit to the OpenTofu registry: open a provider issue at [opentofu/registry](https://github.com/opentofu/registry/issues/new/choose). This is a separate registry, not a mirror. `tofu` rewrites `registry.terraform.io/*` to `registry.opentofu.org/*`, so a provider published only to HashiCorp's registry is uninstallable under OpenTofu — which is what icco.me runs locally, even though its CI uses Terraform.
 
 ## If the draft is wrong
 
@@ -29,13 +31,11 @@ Delete the draft release, **delete the remote tag**, then re-push it. Skipping t
 
 ## One-time setup
 
-Done, listed so it can be re-checked if a release fails to appear:
+All in place. Re-check these if a release fails to appear:
 
 - **Signing key.** A dedicated RSA-4096 key; the registry rejects ECC. The public half is uploaded at registry.terraform.io → signing keys, and `GPG_PRIVATE_KEY` / `PASSPHRASE` are repository secrets. If the signing key and the registered key differ, ingestion fails silently — the GitHub release looks perfect and nothing reaches the registry.
 - **Actions are enabled** and all six CI jobs run on pull requests.
 - **`Release` is only registered on `main`.** GitHub does not register workflows that exist solely on a branch, so its `workflow_dispatch` button appears once the branch is merged.
-
-Still outstanding before the first tag: `porkbun_domain_nameservers` has only ever run against the in-process fake. Exercise it against a real domain through a `dev_overrides` block first — nothing above tests the feature this provider exists for.
 
 ## Versions
 
