@@ -4,7 +4,7 @@ page_title: "porkbun_ssl_bundle Data Source - porkbun"
 subcategory: ""
 description: |-
   Reads the free Let's Encrypt SSL certificate bundle Porkbun issues for a domain hosted on its nameservers, for feeding into a load balancer, ingress or CDN certificate resource.
-  The certificate must already be issued. Porkbun provisions it after the domain is delegated to Porkbun's nameservers, and this read errors — it does not return an empty bundle — until the certificate reaches its HAVECERT state, so a freshly delegated domain may need a later apply.
+  The certificate must already be issued. Porkbun provisions it after the domain is delegated to Porkbun's nameservers, and until the certificate reaches its HAVECERT state this read either fails or returns empty PEMs, so a freshly delegated domain may need a later apply.
   ~> This data source puts a private key in Terraform state. State is stored in plaintext regardless of how the attribute is marked, so use a backend that encrypts at rest and restricts who can read it. Porkbun renews the certificate on its own schedule; re-running Terraform is what picks up the new bundle, so anything consuming it should tolerate the value changing.
 ---
 
@@ -12,7 +12,7 @@ description: |-
 
 Reads the free Let's Encrypt SSL certificate bundle Porkbun issues for a domain hosted on its nameservers, for feeding into a load balancer, ingress or CDN certificate resource.
 
-The certificate must already be issued. Porkbun provisions it after the domain is delegated to Porkbun's nameservers, and this read **errors** — it does not return an empty bundle — until the certificate reaches its `HAVECERT` state, so a freshly delegated domain may need a later apply.
+The certificate must already be issued. Porkbun provisions it after the domain is delegated to Porkbun's nameservers, and until the certificate reaches its `HAVECERT` state this read either fails or returns empty PEMs, so a freshly delegated domain may need a later apply.
 
 ~> **This data source puts a private key in Terraform state.** State is stored in plaintext regardless of how the attribute is marked, so use a backend that encrypts at rest and restricts who can read it. Porkbun renews the certificate on its own schedule; re-running Terraform is what picks up the new bundle, so anything consuming it should tolerate the value changing.
 
@@ -27,17 +27,10 @@ data "porkbun_ssl_bundle" "trout_quest" {
 }
 
 # certificate_chain is the leaf plus intermediates in one PEM, which is the
-# form most TLS servers want as their certificate file.
-resource "local_sensitive_file" "trout_quest_fullchain" {
-  filename        = "/etc/ssl/trout.quest/fullchain.pem"
-  content         = data.porkbun_ssl_bundle.trout_quest.certificate_chain
-  file_permission = "0644"
-}
-
-resource "local_sensitive_file" "trout_quest_key" {
-  filename        = "/etc/ssl/trout.quest/privkey.pem"
-  content         = data.porkbun_ssl_bundle.trout_quest.private_key
-  file_permission = "0600"
+# form most TLS servers want as their certificate file. Feed it to whatever
+# terminates TLS.
+output "trout_quest_fullchain" {
+  value = data.porkbun_ssl_bundle.trout_quest.certificate_chain
 }
 
 # private_key is sensitive, so any output carrying it has to be marked too.

@@ -26,9 +26,9 @@ type sslBundleResponse struct {
 
 // RetrieveSSLBundle reads the SSL certificate bundle for a domain.
 //
-// Porkbun errors rather than returning an empty bundle for a domain whose
-// certificate is not yet issued, and the error carries no SSL-specific code,
-// so "no certificate yet" is not distinguishable from "no such domain".
+// A domain whose certificate is not yet issued either errors or decodes to
+// empty PEMs; the spec documents no SSL-specific error code, so "no
+// certificate yet" is not distinguishable from "no such domain".
 func (c *Client) RetrieveSSLBundle(ctx context.Context, domain string) (*SSLBundle, error) {
 	var out sslBundleResponse
 	if err := c.get(ctx, "ssl/retrieve/"+escapePath(domain), nil, &out); err != nil {

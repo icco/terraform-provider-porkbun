@@ -6,17 +6,10 @@ data "porkbun_ssl_bundle" "trout_quest" {
 }
 
 # certificate_chain is the leaf plus intermediates in one PEM, which is the
-# form most TLS servers want as their certificate file.
-resource "local_sensitive_file" "trout_quest_fullchain" {
-  filename        = "/etc/ssl/trout.quest/fullchain.pem"
-  content         = data.porkbun_ssl_bundle.trout_quest.certificate_chain
-  file_permission = "0644"
-}
-
-resource "local_sensitive_file" "trout_quest_key" {
-  filename        = "/etc/ssl/trout.quest/privkey.pem"
-  content         = data.porkbun_ssl_bundle.trout_quest.private_key
-  file_permission = "0600"
+# form most TLS servers want as their certificate file. Feed it to whatever
+# terminates TLS.
+output "trout_quest_fullchain" {
+  value = data.porkbun_ssl_bundle.trout_quest.certificate_chain
 }
 
 # private_key is sensitive, so any output carrying it has to be marked too.

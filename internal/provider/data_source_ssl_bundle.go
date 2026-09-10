@@ -43,8 +43,8 @@ func (d *sslBundleDataSource) Schema(_ context.Context, _ datasource.SchemaReque
 		MarkdownDescription: "Reads the free Let's Encrypt SSL certificate bundle Porkbun issues for a domain hosted on " +
 			"its nameservers, for feeding into a load balancer, ingress or CDN certificate resource.\n\n" +
 			"The certificate must already be issued. Porkbun provisions it after the domain is delegated to Porkbun's " +
-			"nameservers, and this read **errors** — it does not return an empty bundle — until the certificate " +
-			"reaches its `HAVECERT` state, so a freshly delegated domain may need a later apply.\n\n" +
+			"nameservers, and until the certificate reaches its `HAVECERT` state this read either fails or returns " +
+			"empty PEMs, so a freshly delegated domain may need a later apply.\n\n" +
 			"~> **This data source puts a private key in Terraform state.** State is stored in plaintext regardless " +
 			"of how the attribute is marked, so use a backend that encrypts at rest and restricts who can read it. " +
 			"Porkbun renews the certificate on its own schedule; re-running Terraform is what picks up the new " +
