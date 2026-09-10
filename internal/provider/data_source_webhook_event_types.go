@@ -40,10 +40,11 @@ func (d *webhookEventTypesDataSource) Schema(_ context.Context, _ datasource.Sch
 			"(`/webhook/eventTypes`).\n\n" +
 			"The catalog is read live and grows as Porkbun adds events, which is the reason to read it rather " +
 			"than hard-code a list. Names look like `domain.renewed` and `dns.record.created`.\n\n" +
-			"**The catalog is not the full set of legal subscription values.** Porkbun also accepts a prefix " +
-			"wildcard such as `dns.*`, and `*` for everything — and recommends `*`, since it picks up new event " +
-			"types automatically. Neither wildcard is ever returned by this endpoint, so a check that requires " +
-			"every configured subscription to appear in `event_types` will reject a valid `*`.",
+			"**The catalog is not the full set of legal subscription values.** The `events` field of " +
+			"`/webhook/create` also accepts a prefix wildcard such as `dns.*`, and `*` for everything — and " +
+			"`*` is what Porkbun recommends, since it picks up new event types automatically. Neither wildcard " +
+			"is ever returned by this endpoint, so a comparison that requires every configured subscription to " +
+			"appear in `event_types` will reject a valid `*`.",
 		Attributes: map[string]schema.Attribute{
 			"event_types": schema.SetAttribute{
 				MarkdownDescription: "The subscribable event types, trimmed and de-duplicated. Null — not an " +
