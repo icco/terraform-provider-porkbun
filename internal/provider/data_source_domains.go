@@ -18,6 +18,8 @@ var (
 	_ datasource.DataSourceWithConfigure = (*domainsDataSource)(nil)
 )
 
+func init() { registerDataSource(NewDomainsDataSource) }
+
 // NewDomainsDataSource lists domains in the account.
 func NewDomainsDataSource() datasource.DataSource { return &domainsDataSource{} }
 

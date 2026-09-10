@@ -166,18 +166,11 @@ func (p *porkbunProvider) Configure(ctx context.Context, req provider.ConfigureR
 }
 
 func (p *porkbunProvider) Resources(_ context.Context) []func() resource.Resource {
-	return []func() resource.Resource{
-		NewDomainNameserversResource,
-		NewDNSRecordResource,
-	}
+	return resourceFactories
 }
 
 func (p *porkbunProvider) DataSources(_ context.Context) []func() datasource.DataSource {
-	return []func() datasource.DataSource{
-		NewDomainNameserversDataSource,
-		NewDomainDataSource,
-		NewDomainsDataSource,
-	}
+	return dataSourceFactories
 }
 
 func firstNonEmpty(vals ...string) string {

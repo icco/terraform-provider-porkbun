@@ -18,6 +18,8 @@ var (
 	_ datasource.DataSourceWithConfigure = (*domainNameserversDataSource)(nil)
 )
 
+func init() { registerDataSource(NewDomainNameserversDataSource) }
+
 // NewDomainNameserversDataSource reads a domain's registry delegation.
 func NewDomainNameserversDataSource() datasource.DataSource { return &domainNameserversDataSource{} }
 
