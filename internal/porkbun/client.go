@@ -1,18 +1,10 @@
-// Package porkbun is a small, hand-written client for the subset of the
-// Porkbun v3 JSON API that this Terraform provider needs.
+// Package porkbun is a hand-written client for the subset of the Porkbun v3
+// JSON API this provider needs.
 //
-// Two API behaviours drive its design:
-//
-//  1. Errors are signalled in the JSON body, not the HTTP status code. Some
-//     endpoints answer HTTP 200 with {"status":"ERROR"}, others answer HTTP
-//     400 with the same body. Every response is inspected for a "status"
-//     field, and anything but SUCCESS becomes an *Error whatever the HTTP
-//     code was.
-//
-//  2. Credentials may travel either as apikey/secretapikey in the request
-//     body or as X-API-Key/X-Secret-API-Key headers. This client always uses
-//     the headers, keeping credentials out of request bodies and out of
-//     anything that logs them.
+// Two API behaviours shape it: errors arrive in the JSON body rather than the
+// HTTP status (200 and 400 both carry {"status":"ERROR"}), so status is what
+// is checked; and credentials go in headers, not the body, to keep them out
+// of anything that logs payloads.
 package porkbun
 
 import (
@@ -32,10 +24,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-// DefaultBaseURL is the production Porkbun v3 JSON API.
-//
-// https://api-ipv4.porkbun.com/api/json/v3 is the same API on a host with
-// only A records, for callers whose IPv6 path to the default host is broken.
+// DefaultBaseURL is the production API. api-ipv4.porkbun.com is the same API
+// on an A-records-only host, for callers with a broken IPv6 path.
 const DefaultBaseURL = "https://api.porkbun.com/api/json/v3"
 
 // MockBaseURL serves schema-shaped placeholder responses without
@@ -192,19 +182,10 @@ func ErrorCode(err error) string {
 	return ""
 }
 
-// IsNotFound reports whether err says the domain or record does not exist.
-// Terraform Read uses it to drop the resource from state instead of failing
-// the refresh, so it is deliberately narrow.
-//
-// It does not match HTTP 404 alone: a 404 is equally what a misconfigured
-// base_url or an intercepting proxy returns, and reading that as "the domain
-// is gone" would RemoveResource every managed domain on a single typo.
-//
-// Nor does it match INVALID_DOMAIN, which the v3 spec defines as "Domain
-// parameter is invalid or not in your account" — equally the answer to a
-// malformed domain. INVALID_RECORD_ID is ambiguous in the same way, but ids
-// reaching this client come from the API or pass ParseRecordID first, so
-// here it can only mean the record is gone.
+// IsNotFound reports whether err means the domain or record is gone. Read
+// uses it to drop the resource from state, so it is deliberately narrow:
+// matching bare HTTP 404, or INVALID_DOMAIN ("invalid or not in your
+// account"), would RemoveResource every domain on one bad base_url.
 func IsNotFound(err error) bool {
 	switch ErrorCode(err) {
 	case "DOMAIN_NOT_FOUND", "RECORD_NOT_FOUND", "INVALID_RECORD_ID":

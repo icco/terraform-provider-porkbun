@@ -8,15 +8,9 @@ import (
 	"github.com/icco/terraform-provider-porkbun/internal/porkbun"
 )
 
-// suppressNameserverRespelling keeps the value already in state whenever the
-// planned set denotes the same delegation, differing only in case, trailing
-// dots, ordering or duplicates.
-//
-// Terraform compares a Required attribute's configuration against state
-// literally, so without this a config spelling a nameserver
-// "ns1.example.com." while state holds "ns1.example.com" plans a pointless
-// in-place update forever — exactly where an imported domain lands, since an
-// import has no configuration to take its spelling from.
+// suppressNameserverRespelling keeps the state value when the plan denotes
+// the same delegation spelled differently. Without it an imported domain
+// plans a pointless update forever, having no config to take spelling from.
 type suppressNameserverRespelling struct{}
 
 func (m suppressNameserverRespelling) Description(_ context.Context) string {

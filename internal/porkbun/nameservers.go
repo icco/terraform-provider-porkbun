@@ -8,43 +8,32 @@ import (
 	"strings"
 )
 
-// ErrNoNameservers guards against sending an empty nameserver array to
-// /domain/updateNs. The schema permits it (`ns` is required but has no
-// minItems) and the behaviour is documented nowhere, so it could de-delegate
-// a live domain. The client refuses rather than find out in production.
+// ErrNoNameservers: ns:[] is schema-legal but undocumented, and could
+// de-delegate a live domain.
 var ErrNoNameservers = errors.New("refusing to send an empty nameserver list to porkbun: /domain/updateNs behaviour for ns:[] is undocumented and could de-delegate the domain")
 
-// MinNameservers and MaxNameservers bound the delegation the provider
-// accepts. UpdateNameservers enforces the floor; the ceiling is enforced
-// only by the resource schema validator.
+// UpdateNameservers enforces the floor; the schema validator enforces the
+// ceiling.
 const (
 	MinNameservers = 2
 	MaxNameservers = 13
 )
 
-// ErrTooFewNameservers guards the floor after normalization rather than
-// before it. The resource schema validator counts the strings as configured,
-// but NormalizeNameservers folds case, strips trailing dots and
-// de-duplicates: ["ns1.example.com", "ns1.example.com."] satisfies the
-// validator and still puts a single-nameserver delegation on the wire. Both
-// sides normalize before comparing, so it never surfaces as drift either.
+// ErrTooFewNameservers is checked after normalization: the schema validator
+// counts configured strings, and duplicates that differ only in case or a
+// trailing dot collapse into one.
 var ErrTooFewNameservers = errors.New("refusing to send fewer than two distinct nameservers to porkbun: a single-nameserver delegation has no redundancy")
 
-// NormalizeNameserver lowercases a nameserver hostname and strips the root
-// label's trailing dot. The same nameserver arrives spelled three ways —
-// Cloud DNS emits "ns-cloud-a1.googledomains.com." with the dot, people type
-// it without, and registries may change the case — and unless the read and
-// write sides fold all three to one spelling, every plan shows drift that no
-// apply can fix.
+// NormalizeNameserver folds the spellings the same host arrives in --
+// trailing dot from Cloud DNS, no dot from humans, any case from registries.
 func NormalizeNameserver(ns string) string {
 	ns = strings.TrimSpace(ns)
 	ns = strings.TrimSuffix(ns, ".")
 	return strings.ToLower(ns)
 }
 
-// NormalizeNameservers normalizes every element, drops empties, and
-// de-duplicates. The result is sorted so that two equal sets always render
-// identically; order is not meaningful in an NS RRset (RFC 1034/2181).
+// NormalizeNameservers normalizes, drops empties, de-duplicates and sorts.
+// NS RRset order is not meaningful (RFC 1034/2181).
 func NormalizeNameservers(in []string) []string {
 	seen := make(map[string]struct{}, len(in))
 	out := make([]string, 0, len(in))

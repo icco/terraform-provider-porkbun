@@ -1,7 +1,9 @@
 name: Release
-# Tagging is irreversible: a published registry version can never be
-# unpublished or replaced. Before pushing a tag, rehearse with the
-# workflow_dispatch below, which runs everything except the publish.
+# A v* tag builds a draft; publishing the draft ships it and cannot be undone.
+# Rehearse with dry_run. To redo: delete the draft, delete the remote tag,
+# re-push -- the push event will not fire for an existing tag.
+# This publishes to registry.terraform.io only; OpenTofu is a separate
+# registry (https://github.com/opentofu/registry/issues/new/choose).
 on:
   push:
     tags:
