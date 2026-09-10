@@ -67,6 +67,7 @@ func TestRegisteredSurfaces(t *testing.T) {
 		"porkbun_pricing",
 		"porkbun_ssl_bundle",
 		"porkbun_tld_registration_requirements",
+		"porkbun_webhook_event_types",
 	}
 
 	if got := registeredResourceNames(t); !equalStrings(got, wantResources) {
