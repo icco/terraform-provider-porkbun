@@ -76,10 +76,14 @@ func (f *fakeCheckDomainAPI) checkDomain(w http.ResponseWriter, r *http.Request,
 		writeJSON(w, map[string]any{
 			"status": "SUCCESS",
 			"response": map[string]any{
-				"avail":          "no",
-				"type":           "registration",
-				"price":          "11.06",
-				"firstYearPromo": 0,
+				"avail": "no",
+				"type":  "registration",
+				"price": "11.06",
+				// The 0/1 integer spelling, sent in both directions on
+				// purpose: asserting only the 0 case proves nothing,
+				// because a decode that fell through entirely also yields
+				// false.
+				"firstYearPromo": 1,
 				"regularPrice":   "11.06",
 				"premium":        0,
 				"minDuration":    "1",
@@ -137,11 +141,14 @@ data "porkbun_domain_availability" "open" {
 			ConfigStateChecks: []statecheck.StateCheck{
 				statecheck.ExpectKnownValue("data.porkbun_domain_availability.taken",
 					tfjsonpath.New("available"), knownvalue.Bool(false)),
-				// The fake answers this one with the 0/1 integer spelling of
-				// the yes/no flags; false here would mean the decode fell
-				// through to a zero value rather than reading the flag.
+				// The fake answers this one with the 0/1 integer spelling.
+				// firstYearPromo is 1 and premium is 0, so the pair proves
+				// the integer form decodes in both directions — asserting
+				// only false would pass even if the flag were never read.
 				statecheck.ExpectKnownValue("data.porkbun_domain_availability.taken",
-					tfjsonpath.New("first_year_promo"), knownvalue.Bool(false)),
+					tfjsonpath.New("first_year_promo"), knownvalue.Bool(true)),
+				statecheck.ExpectKnownValue("data.porkbun_domain_availability.taken",
+					tfjsonpath.New("premium"), knownvalue.Bool(false)),
 				// minDuration arrives as the string "1" for this domain.
 				statecheck.ExpectKnownValue("data.porkbun_domain_availability.taken",
 					tfjsonpath.New("min_duration"), knownvalue.Int64Exact(1)),
