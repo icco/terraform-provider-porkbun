@@ -59,6 +59,7 @@ func TestRegisteredSurfaces(t *testing.T) {
 		"porkbun_domain_nameservers",
 		"porkbun_domains",
 		"porkbun_pricing",
+		"porkbun_ssl_bundle",
 	}
 
 	if got := registeredResourceNames(t); !equalStrings(got, wantResources) {
