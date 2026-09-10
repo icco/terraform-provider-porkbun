@@ -21,6 +21,8 @@ A published Terraform Registry version can never be unpublished or replaced. Eve
 
 4. Inspect the draft, then publish it. The registry ingests on publish.
 
+5. Submit to the OpenTofu registry: open a provider issue at [opentofu/registry](https://github.com/opentofu/registry/issues/new/choose). This is a separate registry, not a mirror. `tofu` rewrites `registry.terraform.io/*` to `registry.opentofu.org/*`, so a provider published only to HashiCorp's registry is uninstallable under OpenTofu — which is what icco.me runs locally, even though its CI uses Terraform.
+
 ## If the draft is wrong
 
 Delete the draft release, **delete the remote tag**, then re-push it. Skipping the tag deletion is what makes a release unrepeatable — the push event will not fire again for a tag that already exists.
