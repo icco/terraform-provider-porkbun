@@ -1,19 +1,20 @@
 # Releasing
 
 A published Terraform Registry version can never be unpublished or replaced.
-A bad `v0.4.0` is permanent under the `icco` namespace. Everything below
+A bad `v1.0.0` is permanent under the `icco` namespace. Everything below
 exists to make sure the first tag is not the first test.
 
 ## Two gates before anything else
 
-**Gate A — Actions must be enabled on the fork.** As of this writing,
-`gh api repos/icco/terraform-provider-porkbun/actions/workflows` returns
-`{"total_count":0}` while both workflow files exist on `main`. GitHub
-disables Actions on new forks until a human clicks through the Actions tab.
-**Pushing a tag in this state runs nothing at all** — no release, no error,
-and the tag is spent. Verify the same call returns `2` before tagging.
-(`actions/permissions` reporting `enabled: true` is the allowed-actions
-policy, not workflow enablement. It is not evidence.)
+**Gate A -- Actions must be enabled on the fork.** GitHub disables Actions on
+new forks until a human clicks through the Actions tab, and **pushing a tag in
+that state runs nothing at all** -- no release, no error, and the tag is spent.
+Verified enabled: the `Tests` workflow ran on the branch PR and passed. Note
+that `Release` will not appear in `actions/workflows` (nor its
+`workflow_dispatch` button in the UI) until this branch is merged, because
+GitHub only registers workflows present on the default branch. Merge before
+rehearsing. (`actions/permissions` reporting `enabled: true` is the
+allowed-actions policy, not workflow enablement. It is not evidence.)
 
 **Gate B — confirm the fork is listable.** Sign in to registry.terraform.io →
 Publish → Provider and check that `icco/terraform-provider-porkbun` appears
@@ -45,16 +46,16 @@ the workflow pins.
 ```sh
 goreleaser check          # catches every v2 config error for free
 goreleaser healthcheck
-git tag v0.4.0            # locally; do not push
+git tag v1.0.0            # locally; do not push
 GPG_FINGERPRINT=<FPR> goreleaser release --clean --skip=publish
-git tag -d v0.4.0
+git tag -d v1.0.0
 ```
 
 Then inspect `dist/`:
 
 - one zip per platform;
 - `gpg --verify dist/*_SHA256SUMS.sig dist/*_SHA256SUMS`;
-- `unzip -l` shows the binary named `terraform-provider-porkbun_v0.4.0`;
+- `unzip -l` shows the binary named `terraform-provider-porkbun_v1.0.0`;
 - `file dist/*.sig` says `data` / OpenPGP **binary**, not ASCII text.
   An armored signature is rejected by the registry.
 
@@ -78,16 +79,21 @@ Skipping step 2 is what makes a re-run impossible.
 
 ## Version choice
 
-`v0.4.0`. The fork inherited eleven upstream tags including `v0.3.0`, which
-points at the current `main`, so `v0.3.0` is unavailable. Staying in `0.x`
-keeps the freedom to break `porkbun_dns_record` again without a registry
-major-version event, and avoids the Go module `/vN` suffix that `v1.0.0`
-would impose on the next break. The inherited tags are inert: the registry
-ingests GitHub *Releases*, and there are none.
+`v1.0.0`. New Go repositories in this account start at 1.0.0, and this one is
+no exception.
+
+The argument for staying in `0.x` -- that a later break would then need a
+`/vN` module path -- barely applies to a Terraform provider. Consumers pull a
+signed binary from the registry; nobody imports this module, so the suffix
+costs little beyond a directory rename if v2 ever happens.
+
+The eleven inherited upstream tags (`v0.1.0` through `v0.3.0`, plus a
+malformed `v.0.1.0`) are inert: the registry ingests GitHub *Releases*, and
+the fork has none. `v1.0.0` sorts above all of them, so no collision.
 
 ## Sequencing
 
-Do not cut `v0.4.0` until `porkbun_domain_nameservers` has been proven
+Do not cut `v1.0.0` until `porkbun_domain_nameservers` has been proven
 against real infrastructure through a `dev_overrides` block. Burning the
 version on a release that has not exercised the one feature the fork exists
 for defeats the point of every rehearsal above.
