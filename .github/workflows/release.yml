@@ -1,5 +1,8 @@
 name: Release
 on:
+  schedule:
+    # Daily. Nothing is released on a day with no releasable commits.
+    - cron: '17 13 * * *'
   push:
     tags:
       - v*
@@ -17,19 +20,42 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # Let goreleaser see older tags.
+          # Let goreleaser and the version calculation see older tags.
           fetch-depth: 0
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
           cache: true
+      - name: Determine next version
+        # Skipped when a tag was pushed by hand, which already names one.
+        if: github.event_name != 'push'
+        id: versioning
+        uses: PaulHatch/semantic-version@502226b17e3e242e4befd0a45690fcbb27dd1373 # v6.0.3
+        with:
+          tag_prefix: v
+          # Patterns must be wrapped in / / to be treated as regexes. A bare string is
+          # a literal substring match, so 'feat:' misses scoped commits like 'feat(x):'.
+          major_pattern: '/^[a-z]+(\(.+\))?!:/'
+          minor_pattern: '/feat(\(.+\))?:/'
+          version_format: ${major}.${minor}.${patch}
+      - name: Create and push tag
+        if: github.event_name == 'schedule' && steps.versioning.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$VERSION_TAG"
+          git push origin "$VERSION_TAG"
+        env:
+          VERSION_TAG: ${{ steps.versioning.outputs.version_tag }}
       - name: Import GPG key
+        if: github.event_name != 'schedule' || steps.versioning.outputs.changed == 'true'
         uses: crazy-max/ghaction-import-gpg@2dc316deee8e90f13e1a351ab510b4d5bc0c82cd # v7.0.0
         id: import_gpg
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.PASSPHRASE }}
       - name: Run GoReleaser
+        if: github.event_name != 'schedule' || steps.versioning.outputs.changed == 'true'
         uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
         with:
           # Pinned deliberately. `latest` means a GoReleaser release landing
