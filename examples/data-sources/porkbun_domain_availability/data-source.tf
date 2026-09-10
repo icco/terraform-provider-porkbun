@@ -1,5 +1,6 @@
+# Any name can be checked — it does not have to be in your account.
 data "porkbun_domain_availability" "candidate" {
-  domain = "trout.quest"
+  domain = "a-name-nobody-has-taken.quest"
 }
 
 # price is the first year; regular_price is every year after it. On a
@@ -19,6 +20,16 @@ check "registrable" {
   assert {
     condition = (data.porkbun_domain_availability.candidate.available
     && !data.porkbun_domain_availability.candidate.premium)
-    error_message = "trout.quest is not registrable through the Porkbun API."
+    error_message = "a-name-nobody-has-taken.quest cannot be registered through the Porkbun API."
   }
+}
+
+# An already-registered name: available is false, but the renewal and
+# transfer prices are still populated, which is how you price a transfer in.
+data "porkbun_domain_availability" "owned" {
+  domain = "trout.quest"
+}
+
+output "transfer_in_cost" {
+  value = data.porkbun_domain_availability.owned.transfer.price
 }

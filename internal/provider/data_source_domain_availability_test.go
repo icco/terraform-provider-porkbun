@@ -166,9 +166,10 @@ data "porkbun_domain_availability" "open" {
 		}},
 	})
 
-	// One read per domain per plan-and-refresh cycle is what the rate limit
-	// affords; more than a handful means the data source is re-reading.
-	if n := fake.callCount("trout.quest"); n == 0 {
+	// Proves the state checked above came from the endpoint and not from a
+	// schema default. How many reads one plan-and-apply makes is Terraform's
+	// business, so only the floor is asserted.
+	if fake.callCount("trout.quest") == 0 {
 		t.Error("the data source never called checkDomain")
 	}
 }

@@ -4,7 +4,7 @@ page_title: "porkbun_domain_availability Data Source - porkbun"
 subcategory: ""
 description: |-
   Checks whether a domain is available to register, and what Porkbun currently charges to register, renew and transfer it. Unlike the other data sources here, this works for any domain name — it does not have to be in the authenticated account.
-  ~> This endpoint is rate limited to one check per 10 seconds per account by default (configurable per API key). Data sources are read on every terraform plan, not just on apply, so a configuration holding several of these burns the budget on every plan. Porkbun reports the limit as a RATE_LIMIT_EXCEEDED body on an otherwise-ordinary response rather than as an HTTP 429, which the provider's retry logic does not treat as retryable — the plan fails instead of waiting. Check one domain at a time, or run with -parallelism=1.
+  ~> This endpoint is rate limited to one check per 10 seconds per account by default (configurable per API key). Data sources are read on every terraform plan, not just on apply, so a configuration holding several of these burns the budget on every plan. Porkbun answers a tripped limit either with an HTTP 429, which the provider waits out and retries, or with a RATE_LIMIT_EXCEEDED body on an otherwise-ordinary response, which it cannot tell is worth retrying — in that case the plan fails rather than waiting. Check one domain at a time, or run with -parallelism=1.
   Prices are decimal strings in USD, kept as strings so no rounding happens between Porkbun and Terraform. /domain/create wants the amount in pennies.
 ---
 
@@ -12,15 +12,16 @@ description: |-
 
 Checks whether a domain is available to register, and what Porkbun currently charges to register, renew and transfer it. Unlike the other data sources here, this works for any domain name — it does not have to be in the authenticated account.
 
-~> **This endpoint is rate limited to one check per 10 seconds per account** by default (configurable per API key). Data sources are read on every `terraform plan`, not just on apply, so a configuration holding several of these burns the budget on every plan. Porkbun reports the limit as a `RATE_LIMIT_EXCEEDED` body on an otherwise-ordinary response rather than as an HTTP 429, which the provider's retry logic does not treat as retryable — the plan fails instead of waiting. Check one domain at a time, or run with `-parallelism=1`.
+~> **This endpoint is rate limited to one check per 10 seconds per account** by default (configurable per API key). Data sources are read on every `terraform plan`, not just on apply, so a configuration holding several of these burns the budget on every plan. Porkbun answers a tripped limit either with an HTTP 429, which the provider waits out and retries, or with a `RATE_LIMIT_EXCEEDED` body on an otherwise-ordinary response, which it cannot tell is worth retrying — in that case the plan fails rather than waiting. Check one domain at a time, or run with `-parallelism=1`.
 
 Prices are decimal strings in USD, kept as strings so no rounding happens between Porkbun and Terraform. `/domain/create` wants the amount in pennies.
 
 ## Example Usage
 
 ```terraform
+# Any name can be checked — it does not have to be in your account.
 data "porkbun_domain_availability" "candidate" {
-  domain = "trout.quest"
+  domain = "a-name-nobody-has-taken.quest"
 }
 
 # price is the first year; regular_price is every year after it. On a
@@ -40,8 +41,18 @@ check "registrable" {
   assert {
     condition = (data.porkbun_domain_availability.candidate.available
     && !data.porkbun_domain_availability.candidate.premium)
-    error_message = "trout.quest is not registrable through the Porkbun API."
+    error_message = "a-name-nobody-has-taken.quest cannot be registered through the Porkbun API."
   }
+}
+
+# An already-registered name: available is false, but the renewal and
+# transfer prices are still populated, which is how you price a transfer in.
+data "porkbun_domain_availability" "owned" {
+  domain = "trout.quest"
+}
+
+output "transfer_in_cost" {
+  value = data.porkbun_domain_availability.owned.transfer.price
 }
 ```
 

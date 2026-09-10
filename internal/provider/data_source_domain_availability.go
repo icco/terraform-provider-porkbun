@@ -100,10 +100,10 @@ func (d *domainAvailabilityDataSource) Schema(_ context.Context, _ datasource.Sc
 			"it does not have to be in the authenticated account.\n\n" +
 			"~> **This endpoint is rate limited to one check per 10 seconds per account** by default (configurable " +
 			"per API key). Data sources are read on every `terraform plan`, not just on apply, so a configuration " +
-			"holding several of these burns the budget on every plan. Porkbun reports the limit as a " +
-			"`RATE_LIMIT_EXCEEDED` body on an otherwise-ordinary response rather than as an HTTP 429, which the " +
-			"provider's retry logic does not treat as retryable — the plan fails instead of waiting. Check one domain " +
-			"at a time, or run with `-parallelism=1`.\n\n" +
+			"holding several of these burns the budget on every plan. Porkbun answers a tripped limit either with " +
+			"an HTTP 429, which the provider waits out and retries, or with a `RATE_LIMIT_EXCEEDED` body on an " +
+			"otherwise-ordinary response, which it cannot tell is worth retrying — in that case the plan fails " +
+			"rather than waiting. Check one domain at a time, or run with `-parallelism=1`.\n\n" +
 			"Prices are decimal strings in USD, kept as strings so no rounding happens between Porkbun and " +
 			"Terraform. `/domain/create` wants the amount in pennies.",
 		Attributes: map[string]schema.Attribute{
