@@ -75,7 +75,7 @@ func (r *dnsRecordResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			"domain": schema.StringAttribute{
 				MarkdownDescription: "The domain the record belongs to, e.g. `example.com`.",
 				Required:            true,
-				Validators:          []validator.String{stringvalidator.LengthAtLeast(3)},
+				Validators:          []validator.String{stringvalidator.LengthAtLeast(3), canonicalDomain{}},
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplaceIfConfigured()},
 			},
 			"name": schema.StringAttribute{

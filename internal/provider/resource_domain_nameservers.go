@@ -78,8 +78,8 @@ func (r *domainNameserversResource) Schema(_ context.Context, _ resource.SchemaR
 			"nameservers": schema.SetAttribute{
 				MarkdownDescription: "The nameserver hostnames to delegate to, e.g. the `name_servers` output of a " +
 					"`google_dns_managed_zone`. Case, trailing dots and ordering are ignored, so another provider's " +
-					"output can be passed straight through. Between 2 and 13 distinct hostnames are required, counted " +
-					"after duplicate spellings collapse.",
+					"output can be passed straight through. Between 2 and 13 hostnames; the minimum is counted after " +
+					"duplicate spellings of the same hostname collapse.",
 				Required:    true,
 				ElementType: types.StringType,
 				Validators: []validator.Set{

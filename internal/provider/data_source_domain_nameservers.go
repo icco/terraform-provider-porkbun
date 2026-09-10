@@ -43,7 +43,7 @@ func (d *domainNameserversDataSource) Schema(_ context.Context, _ datasource.Sch
 			"domain": schema.StringAttribute{
 				MarkdownDescription: "The domain to read, e.g. `example.com`.",
 				Required:            true,
-				Validators:          []validator.String{stringvalidator.LengthAtLeast(3)},
+				Validators:          []validator.String{stringvalidator.LengthAtLeast(3), canonicalDomain{}},
 			},
 			"nameservers": schema.SetAttribute{
 				MarkdownDescription: "The nameserver hostnames the registry lists, lowercased, sorted and without " +

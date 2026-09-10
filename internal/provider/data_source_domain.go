@@ -82,7 +82,7 @@ func domainSchemaAttributes(computedDomain bool) map[string]schema.Attribute {
 		domainAttr.Computed = true
 	} else {
 		domainAttr.Required = true
-		domainAttr.Validators = []validator.String{stringvalidator.LengthAtLeast(3)}
+		domainAttr.Validators = []validator.String{stringvalidator.LengthAtLeast(3), canonicalDomain{}}
 	}
 
 	return map[string]schema.Attribute{

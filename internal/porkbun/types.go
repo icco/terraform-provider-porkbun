@@ -44,12 +44,17 @@ func (f *flexInt) UnmarshalJSON(b []byte) error {
 	}
 	i, err := n.Int64()
 	if err != nil {
-		// Tolerate a float that happens to be integral.
+		// Tolerate a float only when it is exactly integral. Truncating
+		// silently would turn a malformed TTL of 600.5 into a plausible 600
+		// and write it to state as if the API had said so.
 		fl, ferr := n.Float64()
 		if ferr != nil {
 			return err
 		}
 		i = int64(fl)
+		if float64(i) != fl {
+			return err
+		}
 	}
 	*f = flexInt(i)
 	return nil
