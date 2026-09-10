@@ -101,7 +101,7 @@ func (d *pricingDataSource) Schema(_ context.Context, _ datasource.SchemaRequest
 				Optional:    true,
 				ElementType: types.StringType,
 				Validators: []validator.Set{
-					setvalidator.ValueStringsAre(stringvalidator.LengthAtLeast(2)),
+					setvalidator.ValueStringsAre(stringvalidator.LengthAtLeast(1)),
 				},
 			},
 			"pricing": schema.MapNestedAttribute{

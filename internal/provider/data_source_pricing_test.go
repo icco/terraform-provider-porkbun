@@ -56,6 +56,13 @@ func (f *fakePricingAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				"registration": "42.52", "renewal": "16.77", "transfer": "16.77",
 				"specialType": "handshake", "coupons": []any{},
 			},
+			// A single-character TLD. Porkbun's live catalog has four of
+			// them (1, c, y, z), all priced, so the tlds filter must accept
+			// a one-character string.
+			"z": map[string]any{
+				"registration": "20.78", "renewal": "20.78", "transfer": "20.78",
+				"specialType": "handshake", "coupons": []any{},
+			},
 			"quest": map[string]any{
 				"registration": "1.10", "renewal": "22.62", "transfer": "22.62",
 				"specialType": nil,
@@ -87,7 +94,7 @@ data "porkbun_pricing" "filtered" {
 `,
 			ConfigStateChecks: []statecheck.StateCheck{
 				statecheck.ExpectKnownValue("data.porkbun_pricing.all",
-					tfjsonpath.New("pricing"), knownvalue.MapSizeExact(5)),
+					tfjsonpath.New("pricing"), knownvalue.MapSizeExact(6)),
 				statecheck.ExpectKnownValue("data.porkbun_pricing.all",
 					tfjsonpath.New("pricing").AtMapKey("security").AtMapKey("registration"),
 					knownvalue.StringExact("2,060.25")),
@@ -149,4 +156,38 @@ func TestMissingTLDs(t *testing.T) {
 	if got := missingTLDs(nil, nil); len(got) != 0 {
 		t.Errorf("missingTLDs(nil, nil) = %v", got)
 	}
+}
+
+// Porkbun's catalog contains the single-character TLDs 1, c, y and z, all
+// priced. A minimum length of two on the filter rejected every one of them
+// at plan time, while the ".z" spelling the schema calls interchangeable
+// passed — so the TLD was reachable only through the spelling the docs do
+// not lead with.
+func TestAccPricingDataSourceSingleCharacterTLD(t *testing.T) {
+	_, url := newFakePricingAPI(t)
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{{
+			Config: providerConfig(url) + `
+data "porkbun_pricing" "bare" {
+  tlds = ["z"]
+}
+
+data "porkbun_pricing" "dotted" {
+  tlds = [".z"]
+}
+`,
+			ConfigStateChecks: []statecheck.StateCheck{
+				statecheck.ExpectKnownValue("data.porkbun_pricing.bare",
+					tfjsonpath.New("pricing").AtMapKey("z").AtMapKey("registration"),
+					knownvalue.StringExact("20.78")),
+				// Both spellings must reach the same entry.
+				statecheck.ExpectKnownValue("data.porkbun_pricing.dotted",
+					tfjsonpath.New("pricing").AtMapKey("z").AtMapKey("registration"),
+					knownvalue.StringExact("20.78")),
+			},
+		}},
+	})
 }
