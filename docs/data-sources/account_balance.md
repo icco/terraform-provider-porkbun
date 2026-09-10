@@ -5,7 +5,7 @@ subcategory: ""
 description: |-
   Reads the available account credit for the authenticated Porkbun account (GET /account/balance). It takes no arguments — the credentials select the account.
   Registrations, renewals and transfers draw down this credit, so the usual use is a check block that fails the plan before a wide apply runs the account dry halfway through.
-  The balance is read live on every plan and refresh, so any configuration that depends on it is never fully known until apply.
+  The balance is read live on every plan and refresh, so it is a snapshot rather than a reservation: a renewal Porkbun bills between the plan and the apply can still take the account below whatever a check block asserted.
 ---
 
 # porkbun_account_balance (Data Source)
@@ -14,7 +14,7 @@ Reads the available account credit for the authenticated Porkbun account (`GET /
 
 Registrations, renewals and transfers draw down this credit, so the usual use is a `check` block that fails the plan before a wide apply runs the account dry halfway through.
 
-The balance is read live on every plan and refresh, so any configuration that depends on it is never fully known until apply.
+The balance is read live on every plan and refresh, so it is a snapshot rather than a reservation: a renewal Porkbun bills between the plan and the apply can still take the account below whatever a `check` block asserted.
 
 ## Example Usage
 
@@ -46,5 +46,5 @@ output "porkbun_credit" {
 
 ### Read-Only
 
-- `balance_cents` (Number) Available credit **in cents**, as Porkbun reports it. Cents, not a decimal amount: comparing money as a float is how a $50.00 floor passes at $49.99, so do the arithmetic here in whole cents and use `display` for anything a human reads.
+- `balance_cents` (Number) Available credit **in cents**, as Porkbun reports it — 1234 means $12.34. Cents rather than a decimal amount, because a binary float cannot hold most cent values exactly and a threshold compared against one is decided by the rounding. Do the arithmetic in whole cents and use `display` for anything a human reads.
 - `display` (String) Porkbun's own rendering of the balance, e.g. `$12.34`. It is the only part of the response that names a currency, so it is passed through verbatim rather than formatted from `balance_cents`. Treat it as display text, not as something to parse.

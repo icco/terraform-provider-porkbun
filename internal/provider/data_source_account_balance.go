@@ -39,14 +39,16 @@ func (d *accountBalanceDataSource) Schema(_ context.Context, _ datasource.Schema
 			"(`GET /account/balance`). It takes no arguments — the credentials select the account.\n\n" +
 			"Registrations, renewals and transfers draw down this credit, so the usual use is a `check` block " +
 			"that fails the plan before a wide apply runs the account dry halfway through.\n\n" +
-			"The balance is read live on every plan and refresh, so any configuration that depends on it is " +
-			"never fully known until apply.",
+			"The balance is read live on every plan and refresh, so it is a snapshot rather than a reservation: " +
+			"a renewal Porkbun bills between the plan and the apply can still take the account below whatever a " +
+			"`check` block asserted.",
 		Attributes: map[string]schema.Attribute{
 			"balance_cents": schema.Int64Attribute{
 				Computed: true,
-				MarkdownDescription: "Available credit **in cents**, as Porkbun reports it. Cents, not a " +
-					"decimal amount: comparing money as a float is how a $50.00 floor passes at $49.99, so do the " +
-					"arithmetic here in whole cents and use `display` for anything a human reads.",
+				MarkdownDescription: "Available credit **in cents**, as Porkbun reports it — 1234 means " +
+					"$12.34. Cents rather than a decimal amount, because a binary float cannot hold most cent " +
+					"values exactly and a threshold compared against one is decided by the rounding. Do the " +
+					"arithmetic in whole cents and use `display` for anything a human reads.",
 			},
 			"display": schema.StringAttribute{
 				Computed: true,
