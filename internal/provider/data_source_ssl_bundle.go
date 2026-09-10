@@ -97,8 +97,8 @@ func (d *sslBundleDataSource) Read(ctx context.Context, req datasource.ReadReque
 		return
 	}
 
-	config.CertificateChain = types.StringValue(string(bundle.CertificateChain))
-	config.PrivateKey = types.StringValue(string(bundle.PrivateKey))
-	config.PublicKey = types.StringValue(string(bundle.PublicKey))
+	config.CertificateChain = types.StringValue(bundle.CertificateChain)
+	config.PrivateKey = types.StringValue(bundle.PrivateKey)
+	config.PublicKey = types.StringValue(bundle.PublicKey)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
 }
