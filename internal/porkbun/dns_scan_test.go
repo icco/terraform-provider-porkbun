@@ -125,9 +125,12 @@ func TestMockDNSScan(t *testing.T) {
 	if len(rawRecords) == 0 {
 		t.Fatal("expected the mock to return at least one scanned record")
 	}
+	// Fatal, not Error: a renamed field would otherwise fall through to a
+	// decode of nil and report "unexpected end of JSON input" instead of
+	// naming the field that moved.
 	for _, key := range []string{"name", "type", "content", "ttl", "prio"} {
 		if _, ok := rawRecords[0][key]; !ok {
-			t.Errorf("scanned records no longer carry %q: %v", key, keysOf(rawRecords[0]))
+			t.Fatalf("scanned records no longer carry %q: %v", key, keysOf(rawRecords[0]))
 		}
 	}
 
@@ -141,28 +144,41 @@ func TestMockDNSScan(t *testing.T) {
 	}
 
 	// Agreement with whatever the body actually said, so this survives
-	// Porkbun editing its example data.
-	var wantContent string
-	if err := json.Unmarshal(rawRecords[0]["content"], &wantContent); err != nil {
-		t.Fatalf("content is not a string: %v", err)
+	// Porkbun editing its example data. Membership rather than position:
+	// ScanDNS sorts, so sorted[0] is raw[0] only while the mock happens to
+	// return a single record.
+	var want ScannedRecord
+	if uerr := json.Unmarshal(mustMarshal(t, rawRecords[0]), &want); uerr != nil {
+		t.Fatalf("the raw record does not decode into ScannedRecord: %v", uerr)
 	}
-	if res.Records[0].Content != wantContent {
-		t.Errorf("content decoded as %q, raw body said %q", res.Records[0].Content, wantContent)
+	want.Name = scanName(want.Name, "example.com")
+
+	found := false
+	for _, got := range res.Records {
+		if got == want {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("no decoded record matches the raw body's first one.\n raw %+v\ngot %+v", want, res.Records)
 	}
 
-	var wantPrio ScannedInt
-	if err := json.Unmarshal(rawRecords[0]["prio"], &wantPrio); err != nil {
-		t.Fatalf("prio did not decode: %v", err)
-	}
-	if res.Records[0].Prio != wantPrio {
-		t.Errorf("prio decoded as %+v, raw body said %+v", res.Records[0].Prio, wantPrio)
-	}
 	// The mock's example record carries a priority; if it ever stops doing
 	// so this stays a decode-agreement test but exercises only the null
 	// path, so say why the coverage narrowed rather than passing silently.
-	if !wantPrio.Present() {
+	if !want.Prio.Present() {
 		t.Log("the mock's example record no longer carries a prio; the non-null path went untested")
 	}
+}
+
+func mustMarshal(t *testing.T, v any) []byte {
+	t.Helper()
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatalf("re-encoding the raw record: %v", err)
+	}
+	return b
 }
 
 func keysOf[V any](m map[string]V) []string {
