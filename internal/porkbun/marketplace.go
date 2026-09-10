@@ -163,7 +163,10 @@ func (c *Client) ListMarketplaceListings(ctx context.Context, opts ListMarketpla
 		if filterMode || page.Filtered || int64(len(page.Domains)) < want {
 			break
 		}
-		start += want
+		// Advance by what came back, not by what was asked for: a server
+		// that over-answers its own limit would otherwise leave start
+		// behind and the next page would repeat listings.
+		start += int64(len(page.Domains))
 	}
 
 	// Filtered mode has no limit parameter, so it is capped after the fact.

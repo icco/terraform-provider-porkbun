@@ -1,9 +1,11 @@
 package provider
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -66,7 +68,7 @@ func (f *marketplaceFake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if term := q.Get("query"); term != "" && !strings.Contains(l.domain, term) {
 			continue
 		}
-		if tlds := q["tlds[]"]; len(tlds) > 0 && !containsString(tlds, l.tld) {
+		if tlds := q["tlds[]"]; len(tlds) > 0 && !slices.Contains(tlds, l.tld) {
 			continue
 		}
 		matched = append(matched, l)
@@ -98,9 +100,13 @@ func (f *marketplaceFake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			entry["price"] = l.price
 			entry["sld_length"] = strconv.Itoa(len(sld))
 		} else {
-			// A JSON number, as the spec types it. json.Number keeps 12.99
-			// out of float formatting.
-			entry["price"] = mustNumber(l.price)
+			// A bare JSON number, as the spec types it. RawMessage keeps
+			// 12.99 off the float round trip, and carries the null case.
+			raw := json.RawMessage("null")
+			if l.price != "" {
+				raw = json.RawMessage(l.price)
+			}
+			entry["price"] = raw
 			entry["sld_length"] = len(sld)
 		}
 		out = append(out, entry)
@@ -108,28 +114,6 @@ func (f *marketplaceFake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{
 		"status": "SUCCESS", "count": len(out), "filtered": filtered, "domains": out,
 	})
-}
-
-func containsString(haystack []string, needle string) bool {
-	for _, h := range haystack {
-		if h == needle {
-			return true
-		}
-	}
-	return false
-}
-
-// mustNumber emits a price as a bare JSON number without going through a
-// float, so "12.99" stays "12.99" on the wire.
-type jsonNumber string
-
-func (n jsonNumber) MarshalJSON() ([]byte, error) { return []byte(n), nil }
-
-func mustNumber(s string) jsonNumber {
-	if s == "" {
-		return "null"
-	}
-	return jsonNumber(s)
 }
 
 func TestAccMarketplaceListingsDataSource(t *testing.T) {
@@ -156,6 +140,16 @@ data "porkbun_marketplace_listings" "com_only" {
 
 data "porkbun_marketplace_listings" "capped" {
   max_results = 2
+}
+
+# The idiom the documented example uses, over a list that contains a null
+# price: HCL evaluates both operands of &&, so a naive price comparison
+# would fail on the unpriced listing rather than skipping it.
+output "affordable" {
+  value = [
+    for l in data.porkbun_marketplace_listings.all.listings :
+    l.domain if l.price != null && l.price <= 500
+  ]
 }
 `,
 			ConfigStateChecks: []statecheck.StateCheck{
@@ -201,6 +195,11 @@ data "porkbun_marketplace_listings" "capped" {
 
 				statecheck.ExpectKnownValue("data.porkbun_marketplace_listings.capped",
 					tfjsonpath.New("listings"), knownvalue.ListSizeExact(2)),
+
+				statecheck.ExpectKnownOutputValue("affordable", knownvalue.ListExact([]knownvalue.Check{
+					knownvalue.StringExact("pigs.com"),
+					knownvalue.StringExact("welch.io"),
+				})),
 			},
 		}},
 	})
