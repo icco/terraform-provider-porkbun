@@ -11,20 +11,23 @@ Dispositions:
 - **client_only** — reachable on `internal/porkbun.Client` but no Terraform surface of its own, because it is an action rather than a piece of state.
 - **out_of_scope** — deliberately not implemented, with the reason given.
 
+## Not supported
+
+**Cloudflare connect (`/cloudflare/*`, 17 paths).** Deferred — this provider does not manage moving domains into a customer's own Cloudflare account. Note that DNS writes against a domain whose DNS Cloudflare already serves still return `SUCCESS` from `/dns/*` while changing nothing that resolves; the client decodes the `warnings` Porkbun attaches to those responses and `porkbun_dns_record` surfaces them, so the case is visible even though it is not manageable here.
+
+**Credential bootstrap (`/apikey/*`).** The provider needs credentials before it can be configured, so it cannot mint its own.
+
+**Test fixtures (`/mock*`, `/sandbox/*`).** Not infrastructure. The client exposes `MockBaseURL` for the decode tests.
+
+## Coverage
+
 | Path | Verbs | Disposition | Surface |
 | --- | --- | --- | --- |
-| `/cloudflare/disconnect` | `POST` | client_only | account-level disconnect helper |
 | `/ping` | `POST+GET` | client_only | Ping (already implemented; credential check) |
 | `/webhook/resend` | `POST` | client_only | delivery resend helper |
 | `/webhook/test` | `POST` | client_only | porkbun_webhook test event helper |
 | `/account/apiSettings` | `GET` | data_source | porkbun_api_settings |
 | `/account/balance` | `GET` | data_source | porkbun_account_balance |
-| `/cloudflare/getConnection` | `GET` | data_source | porkbun_cloudflare_connection |
-| `/cloudflare/getQueue` | `GET` | data_source | porkbun_cloudflare_move_queue |
-| `/cloudflare/getRecords/{domain}` | `GET` | data_source | porkbun_cloudflare_dns_records + resource read |
-| `/cloudflare/getZone/{domain}` | `GET` | data_source | porkbun_cloudflare_zone |
-| `/cloudflare/inventory` | `GET` | data_source | porkbun_cloudflare_inventory |
-| `/cloudflare/preview/{domain}` | `GET` | data_source | porkbun_cloudflare_move_preview |
 | `/dns/getDnssecRecords/{domain}` | `POST+GET` | data_source | porkbun_dnssec_records + resource read |
 | `/dns/retrieve/{domain}/{id}` | `POST+GET` | data_source | porkbun_dns_record |
 | `/dns/retrieve/{domain}` | `POST+GET` | data_source | porkbun_dns_records |
@@ -48,6 +51,23 @@ Dispositions:
 | `/webhook/list` | `GET` | data_source | porkbun_webhooks |
 | `/apikey/request` | `POST` | out_of_scope | credential bootstrap: provider needs keys to configure |
 | `/apikey/retrieve` | `POST` | out_of_scope | credential bootstrap: provider needs keys to configure |
+| `/cloudflare/connect` | `POST` | out_of_scope | deferred: Cloudflare connect is not supported by this provider for now |
+| `/cloudflare/createRecord/{domain}` | `POST` | out_of_scope | deferred: Cloudflare connect is not supported by this provider for now |
+| `/cloudflare/deleteRecord/{domain}/{recordId}` | `POST` | out_of_scope | deferred: Cloudflare connect is not supported by this provider for now |
+| `/cloudflare/disconnect` | `POST` | out_of_scope | deferred: Cloudflare connect is not supported by this provider for now |
+| `/cloudflare/editRecord/{domain}/{recordId}` | `POST` | out_of_scope | deferred: Cloudflare connect is not supported by this provider for now |
+| `/cloudflare/get/{domain}` | `GET` | out_of_scope | deferred: Cloudflare connect is not supported by this provider for now |
+| `/cloudflare/getConnection` | `GET` | out_of_scope | deferred: Cloudflare connect is not supported by this provider for now |
+| `/cloudflare/getQueue` | `GET` | out_of_scope | deferred: Cloudflare connect is not supported by this provider for now |
+| `/cloudflare/getRecords/{domain}` | `GET` | out_of_scope | deferred: Cloudflare connect is not supported by this provider for now |
+| `/cloudflare/getZone/{domain}` | `GET` | out_of_scope | deferred: Cloudflare connect is not supported by this provider for now |
+| `/cloudflare/getZoneSettings/{domain}` | `GET` | out_of_scope | deferred: Cloudflare connect is not supported by this provider for now |
+| `/cloudflare/inventory` | `GET` | out_of_scope | deferred: Cloudflare connect is not supported by this provider for now |
+| `/cloudflare/preview/{domain}` | `GET` | out_of_scope | deferred: Cloudflare connect is not supported by this provider for now |
+| `/cloudflare/retry/{domain}` | `POST` | out_of_scope | deferred: Cloudflare connect is not supported by this provider for now |
+| `/cloudflare/rollback/{domain}` | `POST` | out_of_scope | deferred: Cloudflare connect is not supported by this provider for now |
+| `/cloudflare/setProxy/{domain}` | `POST` | out_of_scope | deferred: Cloudflare connect is not supported by this provider for now |
+| `/cloudflare/setZoneSettings/{domain}` | `POST` | out_of_scope | deferred: Cloudflare connect is not supported by this provider for now |
 | `/mock/{path}` | `GET` | out_of_scope | test harness; client exposes MockBaseURL |
 | `/mock` | `GET` | out_of_scope | test harness; client exposes MockBaseURL |
 | `/sandbox/reset` | `POST` | out_of_scope | sandbox-only test fixture, not infrastructure |
@@ -55,16 +75,6 @@ Dispositions:
 | `/sandbox/triggerWebhook` | `POST` | out_of_scope | sandbox-only test fixture, not infrastructure |
 | `/account/invite` | `POST` | resource | porkbun_account_invite |
 | `/account/inviteStatus` | `GET` | resource | porkbun_account_invite (read) |
-| `/cloudflare/connect` | `POST` | resource | porkbun_cloudflare_domain_move (create/queue) |
-| `/cloudflare/createRecord/{domain}` | `POST` | resource | porkbun_cloudflare_dns_record (create) |
-| `/cloudflare/deleteRecord/{domain}/{recordId}` | `POST` | resource | porkbun_cloudflare_dns_record (delete) |
-| `/cloudflare/editRecord/{domain}/{recordId}` | `POST` | resource | porkbun_cloudflare_dns_record (update) |
-| `/cloudflare/get/{domain}` | `GET` | resource | porkbun_cloudflare_domain_move (read) |
-| `/cloudflare/getZoneSettings/{domain}` | `GET` | resource | porkbun_cloudflare_zone_settings (read) |
-| `/cloudflare/retry/{domain}` | `POST` | resource | porkbun_cloudflare_domain_move (retry) |
-| `/cloudflare/rollback/{domain}` | `POST` | resource | porkbun_cloudflare_domain_move (delete/rollback) |
-| `/cloudflare/setProxy/{domain}` | `POST` | resource | porkbun_cloudflare_zone_settings (proxy toggle) |
-| `/cloudflare/setZoneSettings/{domain}` | `POST` | resource | porkbun_cloudflare_zone_settings (write) |
 | `/dns/create/{domain}` | `POST` | resource | porkbun_dns_record (shipped) |
 | `/dns/createDnssecRecord/{domain}` | `POST` | resource | porkbun_dnssec_record (create) |
 | `/dns/delete/{domain}/{id}` | `POST` | resource | porkbun_dns_record (shipped) |
