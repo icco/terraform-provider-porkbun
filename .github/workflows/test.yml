@@ -1,13 +1,10 @@
 name: Tests
-
 on:
   push:
     branches: [main]
   pull_request:
-
 permissions:
   contents: read
-
 jobs:
   build:
     name: Build
@@ -21,7 +18,6 @@ jobs:
           cache: true
       - run: go mod download
       - run: go build -v ./...
-
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -37,7 +33,6 @@ jobs:
       - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
           version: v2.13.2
-
   generate:
     name: Docs are current
     runs-on: ubuntu-latest
@@ -59,7 +54,6 @@ jobs:
         run: |
           git diff --compact-summary --exit-code || \
             (echo; echo "docs/ is out of date. Run 'make docs' and commit the result."; exit 1)
-
   test:
     name: Acceptance (Terraform ${{ matrix.terraform }})
     needs: build

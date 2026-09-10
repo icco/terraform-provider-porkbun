@@ -1,9 +1,7 @@
 # golangci-lint v2 schema (golangci-lint >= 2.0).
 version: "2"
-
 run:
   timeout: 5m
-
 linters:
   default: none
   enable:
@@ -43,11 +41,9 @@ linters:
       - path: _test\.go
         linters:
           - unparam
-
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
-
 formatters:
   enable:
     - gofmt

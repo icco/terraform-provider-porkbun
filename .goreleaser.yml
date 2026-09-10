@@ -2,13 +2,11 @@
 # because every one of the v1-to-v2 breaking changes fails only at release
 # time, which is after the tag is already spent.
 version: 2
-
 before:
   hooks:
     # Deliberately not `go mod tidy`: a hook that can modify go.mod/go.sum
     # aborts the release on a dirty worktree.
     - go mod download
-
 builds:
   - env:
       # goreleaser does not work with CGO, and it would complicate use in
@@ -33,18 +31,15 @@ builds:
       - goos: darwin
         goarch: '386'
     binary: '{{ .ProjectName }}_v{{ .Version }}'
-
 archives:
   - formats: [zip]
     name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
-
 checksum:
   extra_files:
     - glob: 'terraform-registry-manifest.json'
       name_template: '{{ .ProjectName }}_{{ .Version }}_manifest.json'
   name_template: '{{ .ProjectName }}_{{ .Version }}_SHA256SUMS'
   algorithm: sha256
-
 signs:
   - artifacts: checksum
     args:
@@ -57,7 +52,6 @@ signs:
       # Detached and BINARY. Adding --armor breaks registry ingestion.
       - "--detach-sign"
       - "${artifact}"
-
 release:
   extra_files:
     - glob: 'terraform-registry-manifest.json'
@@ -68,6 +62,5 @@ release:
   # re-push the tag. Skipping the tag deletion is what makes a re-run
   # impossible.
   draft: true
-
 changelog:
   disable: true
