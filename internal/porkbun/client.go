@@ -116,6 +116,10 @@ type statusEnvelope struct {
 	Message    string      `json:"message"`
 	Code       string      `json:"code"`
 	NextAction *NextAction `json:"next_action"`
+	// Warnings is undeclared in the OpenAPI spec but promised by the prose
+	// reference, most importantly on /dns/* writes to a domain whose DNS
+	// Cloudflare now serves. See warnings.go.
+	Warnings warningList `json:"warnings"`
 }
 
 // NextAction is Porkbun's machine-readable remediation hint.
@@ -317,6 +321,18 @@ func (c *Client) do(ctx context.Context, method, path string, query url.Values, 
 			Path:       path,
 			Raw:        raw,
 		}
+	}
+
+	// Log every warning, and hand them to a collector when the caller
+	// installed one. This runs on the success path only: an error already
+	// carries the whole body in Raw.
+	if len(env.Warnings) > 0 {
+		msgs := make([]string, 0, len(env.Warnings))
+		for _, w := range env.Warnings {
+			msgs = append(msgs, w.String())
+		}
+		tflog.Warn(ctx, "porkbun api warning", map[string]any{"path": path, "warnings": msgs})
+		collectorFrom(ctx).add(env.Warnings)
 	}
 
 	if out == nil {
