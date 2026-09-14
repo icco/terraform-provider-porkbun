@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: Build and sign a snapshot without publishing anything
+        description: Dry Run?
         type: boolean
         default: true
 permissions:
