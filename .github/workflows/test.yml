@@ -67,6 +67,8 @@ jobs:
           - 1.14.*
           - 1.15.*
           - 1.16.*
+          # Catches a new minor before the list above is updated.
+          - latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -84,3 +86,34 @@ jobs:
       - env:
           TF_ACC: "1"
         run: go test -v -cover -timeout 30m ./...
+  test-opentofu:
+    name: Acceptance (OpenTofu ${{ matrix.opentofu }})
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        opentofu:
+          - 1.11.*
+          - 1.12.*
+          - latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
+        with:
+          tofu_version: ${{ matrix.opentofu }}
+          tofu_wrapper: false
+      - run: go mod download
+      # terraform-plugin-testing drives whatever binary TF_ACC_TERRAFORM_PATH
+      # names; it needs an absolute path. The provider host must match the
+      # registry tofu resolves providers from.
+      - run: echo "TF_ACC_TERRAFORM_PATH=$(which tofu)" >> "$GITHUB_ENV"
+      - env:
+          TF_ACC: "1"
+          TF_ACC_PROVIDER_HOST: registry.opentofu.org
+        run: go test -v -timeout 30m ./internal/provider/...

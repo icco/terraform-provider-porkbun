@@ -21,7 +21,7 @@ Nameservers are a set, compared ignoring case, trailing dots and ordering, so an
 
 ## Requirements
 
-Terraform 1.0 or later: the provider speaks plugin protocol 6. `import` blocks need Terraform 1.5 or later, and importing by `identity` needs 1.12 or later.
+Terraform 1.0 or later: the provider speaks plugin protocol 6. `import` blocks need Terraform 1.5 or later, and importing by `identity` needs 1.12 or later. OpenTofu 1.11 and later is tested in CI.
 
 ## Example Usage
 
