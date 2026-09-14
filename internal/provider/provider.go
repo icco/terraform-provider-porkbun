@@ -65,7 +65,9 @@ func (p *porkbunProvider) Schema(_ context.Context, _ provider.SchemaRequest, re
 				Optional: true,
 			},
 			"max_retries": schema.Int64Attribute{
-				MarkdownDescription: "How many times to retry a failed API call. Defaults to `3`; `0` disables retries. " +
+				MarkdownDescription: "How many times to retry an API call that failed with an HTTP 5xx, a 429, or a network error, " +
+					"with exponential backoff between attempts. Defaults to `" + strconv.Itoa(porkbun.DefaultMaxRetries) + "`, " +
+					"so a call is attempted five times before it fails; `0` disables retries. " +
 					"May also be set with the `PORKBUN_MAX_RETRIES` environment variable.",
 				Optional:   true,
 				Validators: []validator.Int64{int64validator.AtLeast(0)},
@@ -131,7 +133,7 @@ func (p *porkbunProvider) Configure(ctx context.Context, req provider.ConfigureR
 		return
 	}
 
-	maxRetries := 3
+	maxRetries := porkbun.DefaultMaxRetries
 	switch {
 	case !config.MaxRetries.IsNull():
 		maxRetries = int(config.MaxRetries.ValueInt64())

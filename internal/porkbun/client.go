@@ -32,15 +32,16 @@ const DefaultBaseURL = "https://api.porkbun.com/api/json/v3"
 // authentication. It is stateless: writes are not reflected in later reads.
 const MockBaseURL = DefaultBaseURL + "/mock"
 
-const defaultMaxRetries = 3
+// DefaultMaxRetries is four retries, so a failing call is tried five times.
+const DefaultMaxRetries = 4
 
 // Config configures a Client.
 type Config struct {
 	APIKey    string
 	SecretKey string
 	BaseURL   string
-	// MaxRetries is the retry budget for failed calls. Zero means no retries;
-	// a negative value selects the package default.
+	// MaxRetries is the number of retries after the first attempt. Zero
+	// disables retries; a negative value selects DefaultMaxRetries.
 	MaxRetries int
 	UserAgent  string
 	// HTTPClient, when set, replaces the underlying transport. Used by tests.
@@ -73,14 +74,14 @@ func New(cfg Config) (*Client, error) {
 
 	retries := cfg.MaxRetries
 	if retries < 0 {
-		retries = defaultMaxRetries
+		retries = DefaultMaxRetries
 	}
 
 	rc := retryablehttp.NewClient()
 	rc.RetryMax = retries
 	rc.RetryWaitMin = 500 * time.Millisecond
 	rc.RetryWaitMax = 30 * time.Second
-	// DefaultBackoff honours Retry-After on 429 and 503.
+	rc.CheckRetry = retryPolicy
 	rc.Backoff = retryablehttp.DefaultBackoff
 	// This package logs through tflog.
 	rc.Logger = nil
@@ -104,6 +105,22 @@ func New(cfg Config) (*Client, error) {
 		userAgent: ua,
 		http:      rc,
 	}, nil
+}
+
+// retryPolicy retries 5xx, 429 and transport errors. Body-level errors on
+// 200/400 are never retried, whatever next_action says.
+func retryPolicy(ctx context.Context, resp *http.Response, err error) (bool, error) {
+	if ctx.Err() != nil {
+		return false, ctx.Err()
+	}
+	if err != nil {
+		// The library rules out unrecoverable transport errors (TLS, scheme, redirects).
+		return retryablehttp.DefaultRetryPolicy(ctx, resp, err)
+	}
+	if resp == nil {
+		return false, nil
+	}
+	return (resp.StatusCode >= 500 && resp.StatusCode < 600) || resp.StatusCode == http.StatusTooManyRequests, nil
 }
 
 // BaseURL returns the configured API root.
