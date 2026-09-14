@@ -190,6 +190,10 @@ func (r *dnsRecordResource) Read(ctx context.Context, req resource.ReadRequest, 
 	if !found {
 		tflog.Warn(ctx, "dns record no longer exists, removing from state", map[string]any{"domain": domain, "id": id})
 		resp.State.RemoveResource(ctx)
+		// A CLI without identity support (OpenTofu 1.11) stores none, so the
+		// framework sees a null identity after this Read and errors
+		// (opentofu/opentofu#3658).
+		resp.Diagnostics.Append(setDNSRecordIdentity(ctx, resp.Identity, domain, id)...)
 		return
 	}
 
