@@ -82,8 +82,6 @@ func New(cfg Config) (*Client, error) {
 	rc.RetryWaitMin = 500 * time.Millisecond
 	rc.RetryWaitMax = 30 * time.Second
 	rc.CheckRetry = retryPolicy
-	// Exponential from RetryWaitMin, capped at RetryWaitMax; honours
-	// Retry-After on 429 and 503.
 	rc.Backoff = retryablehttp.DefaultBackoff
 	// This package logs through tflog.
 	rc.Logger = nil
