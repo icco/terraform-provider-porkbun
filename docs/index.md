@@ -62,5 +62,5 @@ Credentials come from the provider configuration, or from the `PORKBUN_API_KEY` 
 
 - `api_key` (String, Sensitive) Porkbun API key (`pk1_...`). May also be set with the `PORKBUN_API_KEY` environment variable.
 - `base_url` (String) Override the Porkbun API root. Defaults to `https://api.porkbun.com/api/json/v3`. Use `https://api-ipv4.porkbun.com/api/json/v3`, which resolves A records only, from networks without working IPv6. May also be set with the `PORKBUN_BASE_URL` environment variable.
-- `max_retries` (Number) How many times to retry a failed API call. Defaults to `3`; `0` disables retries. May also be set with the `PORKBUN_MAX_RETRIES` environment variable.
+- `max_retries` (Number) How many times to retry an API call that failed with an HTTP 5xx, a 429, or a network error, with exponential backoff between attempts. Defaults to `4`, so a call is attempted five times before it fails; `0` disables retries. May also be set with the `PORKBUN_MAX_RETRIES` environment variable.
 - `secret_key` (String, Sensitive) Porkbun secret API key (`sk1_...`). May also be set with the `PORKBUN_SECRET_KEY` environment variable.

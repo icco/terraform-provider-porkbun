@@ -32,15 +32,18 @@ const DefaultBaseURL = "https://api.porkbun.com/api/json/v3"
 // authentication. It is stateless: writes are not reflected in later reads.
 const MockBaseURL = DefaultBaseURL + "/mock"
 
-const defaultMaxRetries = 3
+// DefaultMaxRetries is the retry budget when Config.MaxRetries is negative:
+// four retries, so a failing call is attempted five times in total.
+const DefaultMaxRetries = 4
 
 // Config configures a Client.
 type Config struct {
 	APIKey    string
 	SecretKey string
 	BaseURL   string
-	// MaxRetries is the retry budget for failed calls. Zero means no retries;
-	// a negative value selects the package default.
+	// MaxRetries is the retry budget for failed calls, on top of the first
+	// attempt. Zero means no retries; a negative value selects
+	// DefaultMaxRetries.
 	MaxRetries int
 	UserAgent  string
 	// HTTPClient, when set, replaces the underlying transport. Used by tests.
@@ -73,14 +76,16 @@ func New(cfg Config) (*Client, error) {
 
 	retries := cfg.MaxRetries
 	if retries < 0 {
-		retries = defaultMaxRetries
+		retries = DefaultMaxRetries
 	}
 
 	rc := retryablehttp.NewClient()
 	rc.RetryMax = retries
 	rc.RetryWaitMin = 500 * time.Millisecond
 	rc.RetryWaitMax = 30 * time.Second
-	// DefaultBackoff honours Retry-After on 429 and 503.
+	rc.CheckRetry = retryPolicy
+	// DefaultBackoff doubles RetryWaitMin per attempt up to RetryWaitMax, and
+	// honours Retry-After on 429 and 503.
 	rc.Backoff = retryablehttp.DefaultBackoff
 	// This package logs through tflog.
 	rc.Logger = nil
@@ -104,6 +109,24 @@ func New(cfg Config) (*Client, error) {
 		userAgent: ua,
 		http:      rc,
 	}, nil
+}
+
+// retryPolicy decides whether an attempt is worth repeating: any 5xx, a 429
+// rate limit, and transport errors. Porkbun's body-level errors ride on 200
+// and 400 and are never retried here, whatever next_action says.
+func retryPolicy(ctx context.Context, resp *http.Response, err error) (bool, error) {
+	if ctx.Err() != nil {
+		return false, ctx.Err()
+	}
+	if err != nil {
+		// Let the library rule out the unrecoverable transport errors
+		// (bad scheme, TLS verification, redirect loops).
+		return retryablehttp.DefaultRetryPolicy(ctx, resp, err)
+	}
+	if resp == nil {
+		return false, nil
+	}
+	return resp.StatusCode >= 500 || resp.StatusCode == http.StatusTooManyRequests, nil
 }
 
 // BaseURL returns the configured API root.
