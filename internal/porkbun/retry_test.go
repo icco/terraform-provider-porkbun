@@ -2,6 +2,7 @@ package porkbun
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -105,6 +106,40 @@ func TestDoesNotRetryClientError(t *testing.T) {
 	}
 }
 
+// flakyTransport fails the first n round trips before delegating.
+type flakyTransport struct {
+	n     int
+	calls atomic.Int32
+	next  http.RoundTripper
+}
+
+func (f *flakyTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	if int(f.calls.Add(1)) <= f.n {
+		return nil, errors.New("connection reset by peer")
+	}
+	return f.next.RoundTrip(r)
+}
+
+func TestRetriesTransportError(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"status":"SUCCESS","yourIp":"203.0.113.9"}`))
+	}))
+	defer srv.Close()
+
+	c := retryingClient(t, srv.URL)
+	ft := &flakyTransport{n: 2, next: http.DefaultTransport}
+	c.http.HTTPClient = &http.Client{Transport: ft}
+
+	if _, err := c.Ping(context.Background()); err != nil {
+		t.Fatalf("Ping: %v", err)
+	}
+	if got := ft.calls.Load(); got != 3 {
+		t.Errorf("round trips = %d, want 3", got)
+	}
+}
+
 func TestZeroRetriesMeansOneTry(t *testing.T) {
 	t.Parallel()
 
@@ -131,7 +166,7 @@ func TestRetryPolicy(t *testing.T) {
 		want   bool
 	}{
 		{200, false}, {400, false}, {404, false}, {429, true},
-		{500, true}, {501, true}, {502, true}, {503, true}, {504, true}, {599, true},
+		{500, true}, {501, true}, {502, true}, {503, true}, {504, true}, {599, true}, {600, false},
 	} {
 		got, err := retryPolicy(context.Background(), &http.Response{StatusCode: tc.status}, nil)
 		if err != nil || got != tc.want {
