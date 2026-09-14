@@ -11,8 +11,7 @@ import (
 	"github.com/hashicorp/go-retryablehttp"
 )
 
-// retryingClient uses the default retry budget with waits shrunk so the
-// tests finish in milliseconds. The backoff curve is asserted separately.
+// retryingClient has the default retry budget with millisecond waits.
 func retryingClient(t *testing.T, baseURL string) *Client {
 	t.Helper()
 	c, err := New(Config{APIKey: "pk1_test", SecretKey: "sk1_test", BaseURL: baseURL, MaxRetries: -1})
@@ -147,8 +146,7 @@ func TestRetryPolicy(t *testing.T) {
 	}
 }
 
-// TestBackoffIsExponential pins the wait curve New configures: 0.5s, 1s, 2s,
-// 4s between the five attempts, capped at 30s.
+// TestBackoffIsExponential pins the curve: 0.5s, 1s, 2s, 4s, capped at 30s.
 func TestBackoffIsExponential(t *testing.T) {
 	t.Parallel()
 

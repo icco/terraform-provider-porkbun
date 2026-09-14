@@ -32,8 +32,7 @@ const DefaultBaseURL = "https://api.porkbun.com/api/json/v3"
 // authentication. It is stateless: writes are not reflected in later reads.
 const MockBaseURL = DefaultBaseURL + "/mock"
 
-// DefaultMaxRetries is the retry budget when Config.MaxRetries is negative:
-// four retries, so a failing call is attempted five times in total.
+// DefaultMaxRetries is four retries, so a failing call is tried five times.
 const DefaultMaxRetries = 4
 
 // Config configures a Client.
@@ -41,9 +40,8 @@ type Config struct {
 	APIKey    string
 	SecretKey string
 	BaseURL   string
-	// MaxRetries is the retry budget for failed calls, on top of the first
-	// attempt. Zero means no retries; a negative value selects
-	// DefaultMaxRetries.
+	// MaxRetries is the number of retries after the first attempt. Zero
+	// disables retries; a negative value selects DefaultMaxRetries.
 	MaxRetries int
 	UserAgent  string
 	// HTTPClient, when set, replaces the underlying transport. Used by tests.
@@ -84,8 +82,8 @@ func New(cfg Config) (*Client, error) {
 	rc.RetryWaitMin = 500 * time.Millisecond
 	rc.RetryWaitMax = 30 * time.Second
 	rc.CheckRetry = retryPolicy
-	// DefaultBackoff doubles RetryWaitMin per attempt up to RetryWaitMax, and
-	// honours Retry-After on 429 and 503.
+	// Exponential from RetryWaitMin, capped at RetryWaitMax; honours
+	// Retry-After on 429 and 503.
 	rc.Backoff = retryablehttp.DefaultBackoff
 	// This package logs through tflog.
 	rc.Logger = nil
@@ -111,16 +109,14 @@ func New(cfg Config) (*Client, error) {
 	}, nil
 }
 
-// retryPolicy decides whether an attempt is worth repeating: any 5xx, a 429
-// rate limit, and transport errors. Porkbun's body-level errors ride on 200
-// and 400 and are never retried here, whatever next_action says.
+// retryPolicy retries 5xx, 429 and transport errors. Body-level errors on
+// 200/400 are never retried, whatever next_action says.
 func retryPolicy(ctx context.Context, resp *http.Response, err error) (bool, error) {
 	if ctx.Err() != nil {
 		return false, ctx.Err()
 	}
 	if err != nil {
-		// Let the library rule out the unrecoverable transport errors
-		// (bad scheme, TLS verification, redirect loops).
+		// The library rules out unrecoverable transport errors (TLS, scheme, redirects).
 		return retryablehttp.DefaultRetryPolicy(ctx, resp, err)
 	}
 	if resp == nil {
