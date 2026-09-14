@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
+	"github.com/hashicorp/terraform-plugin-testing/tfversion"
 )
 
 func nameserversConfig(baseURL, domain string, ns []string) string {
@@ -113,14 +114,6 @@ func TestAccDomainNameserversLifecycle(t *testing.T) {
 				ImportStateId:    "trout.quest",
 				ImportStateCheck: checkImportedNameservers("trout.quest", "ns-cloud-b1.googledomains.com", "ns-cloud-b2.googledomains.com"),
 			},
-			// Import by resource identity (Terraform 1.12+), the mechanism a
-			// fleet of hand-configured domains migrates through.
-			{
-				ResourceName:     "porkbun_domain_nameservers.test",
-				ImportState:      true,
-				ImportStateKind:  resource.ImportBlockWithResourceIdentity,
-				ImportStateCheck: checkImportedNameservers("trout.quest", "ns-cloud-b1.googledomains.com", "ns-cloud-b2.googledomains.com"),
-			},
 		},
 	})
 
@@ -133,6 +126,30 @@ func TestAccDomainNameserversLifecycle(t *testing.T) {
 	if fake.deleteNsCalls != 0 {
 		t.Errorf("destroy made %d nameserver-clearing API calls, want 0", fake.deleteNsCalls)
 	}
+}
+
+// TestAccDomainNameserversImportByIdentity covers the import block with an
+// identity, the mechanism a fleet of hand-configured domains migrates
+// through. It needs a 1.12+ CLI.
+func TestAccDomainNameserversImportByIdentity(t *testing.T) {
+	fake, url := newFakeAPI(t)
+	fake.seedDomain("trout.quest", "curitiba.ns.porkbun.com", "fortaleza.ns.porkbun.com")
+	ns := []string{"ns-cloud-b1.googledomains.com.", "ns-cloud-b2.googledomains.com."}
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		TerraformVersionChecks:   []tfversion.TerraformVersionCheck{tfversion.SkipBelow(tfversion.Version1_12_0)},
+		Steps: []resource.TestStep{
+			{Config: nameserversConfig(url, "trout.quest", ns)},
+			{
+				ResourceName:     "porkbun_domain_nameservers.test",
+				ImportState:      true,
+				ImportStateKind:  resource.ImportBlockWithResourceIdentity,
+				ImportStateCheck: checkImportedNameservers("trout.quest", "ns-cloud-b1.googledomains.com", "ns-cloud-b2.googledomains.com"),
+			},
+		},
+	})
 }
 
 // checkImportedNameservers asserts the attributes an import produced.

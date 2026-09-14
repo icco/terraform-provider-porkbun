@@ -245,6 +245,10 @@ func (r *domainNameserversResource) Read(ctx context.Context, req resource.ReadR
 		if porkbun.IsNotFound(err) {
 			tflog.Warn(ctx, "domain no longer in the porkbun account, removing from state", map[string]any{"domain": domain})
 			resp.State.RemoveResource(ctx)
+			// A CLI without identity support (OpenTofu 1.11) stores none, so the
+			// framework sees a null identity after this Read and errors
+			// (opentofu/opentofu#3658).
+			resp.Diagnostics.Append(setNameserversIdentity(ctx, resp.Identity, domain)...)
 			return
 		}
 		resp.Diagnostics.Append(apiErrorDiagnostic(fmt.Sprintf("Unable to read nameservers for %s", domain), err))
