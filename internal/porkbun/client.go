@@ -120,7 +120,7 @@ func retryPolicy(ctx context.Context, resp *http.Response, err error) (bool, err
 	if resp == nil {
 		return false, nil
 	}
-	return resp.StatusCode >= 500 || resp.StatusCode == http.StatusTooManyRequests, nil
+	return (resp.StatusCode >= 500 && resp.StatusCode < 600) || resp.StatusCode == http.StatusTooManyRequests, nil
 }
 
 // BaseURL returns the configured API root.
