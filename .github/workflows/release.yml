@@ -43,7 +43,11 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          bash .github/scripts/ensure-release-tag.sh "$VERSION_TAG"
+          if ! git show-ref --verify --quiet "refs/tags/$VERSION_TAG"; then
+            git tag "$VERSION_TAG"
+          fi
+          test "$(git rev-parse "$VERSION_TAG^{commit}")" = "$(git rev-parse HEAD)"
+          git push origin "refs/tags/$VERSION_TAG"
         env:
           VERSION_TAG: ${{ steps.versioning.outputs.version_tag }}
       - name: Import GPG key
