@@ -39,12 +39,15 @@ jobs:
           minor_pattern: '/feat(\(.+\))?:/'
           version_format: ${major}.${minor}.${patch}
       - name: Create and push tag
-        if: github.event_name == 'schedule' && steps.versioning.outputs.changed == 'true'
+        if: (github.event_name == 'schedule' && steps.versioning.outputs.changed == 'true') || (github.event_name == 'workflow_dispatch' && !inputs.dry_run)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "$VERSION_TAG"
-          git push origin "$VERSION_TAG"
+          if ! git show-ref --verify --quiet "refs/tags/$VERSION_TAG"; then
+            git tag "$VERSION_TAG"
+          fi
+          test "$(git rev-parse "$VERSION_TAG^{commit}")" = "$(git rev-parse HEAD)"
+          git push origin "refs/tags/$VERSION_TAG"
         env:
           VERSION_TAG: ${{ steps.versioning.outputs.version_tag }}
       - name: Import GPG key
