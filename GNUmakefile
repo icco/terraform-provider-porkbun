@@ -12,13 +12,14 @@ fmt:
 
 .PHONY: lint
 lint:
-	gofmt -l . | tee /dev/stderr | (! read)
+	gofmt -l . | tee /dev/stderr | (! read -r)
 	$(GO) vet ./...
 	golangci-lint run
 
 # Unit tests plus the Porkbun /mock decode tests. No credentials needed.
 .PHONY: test
 test:
+	python3 tests/test-release-workflow.py -q
 	$(GO) test ./... -timeout 10m
 
 # Full lifecycle tests against the in-process fake API. Still no credentials:

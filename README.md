@@ -85,6 +85,17 @@ provider_installation {
 
 `go install .` puts the binary there. With an override in place `terraform plan` and `apply` work; `terraform init` is skipped.
 
+## Releases
+
+The daily Release workflow calculates and tags the next version when there are
+new commits. Manual runs on `main` default to `dry_run: true`, which builds a
+snapshot without creating a tag or publishing. Set `dry_run: false` to create
+the calculated tag and publish a real release. Existing tag pushes still release
+that tag directly.
+
+After a workflow fix, start a new run: rerunning an old failed job uses its old
+workflow revision. Test the tagging policy with `python3 tests/test-release-workflow.py -q`.
+
 ## License
 
 MPL-2.0, inherited from [`cullenmcdermott/terraform-provider-porkbun`](https://github.com/cullenmcdermott/terraform-provider-porkbun), which this is a fork of; [CHANGELOG.md](./CHANGELOG.md) records what changed.
