@@ -34,6 +34,18 @@ Domains already delegated by hand are adopted with `terraform import` or an `imp
 
 Full reference: [`docs/`](./docs).
 
+## Request concurrency
+
+Each configured provider client sends one API request at a time, including
+retries and response consumption, to avoid concurrent-call HTTP 503 failures.
+Queued calls honor cancellation and deadlines. Other providers can still use
+Terraform/OpenTofu's normal parallelism; no global `-parallelism=1` workaround
+is needed for a single Porkbun configuration using this release.
+
+Separate provider aliases and processes have independent clients. This is not
+account-wide rate limiting, and API quota errors still use the existing retry
+policy.
+
 ## Before your first apply
 
 1. **Enable API access** for the account at [porkbun.com/account/api](https://porkbun.com/account/api), then opt in per domain at [porkbun.com/account/domainsSpeedy](https://porkbun.com/account/domainsSpeedy) — or account-wide, with "Opt In All Domains" on the API page. A key cannot touch a domain that has not opted in, however well scoped it is. The `porkbun_domains` data source filtered on `api_access = true` lists the domains a key can actually use.

@@ -55,6 +55,9 @@ type Client struct {
 	baseURL   *url.URL
 	userAgent string
 	http      *retryablehttp.Client
+	// Hold one slot through retries and response consumption. Keeping this
+	// local to the client lets other providers continue at normal parallelism.
+	requestSlot chan struct{}
 }
 
 // New builds a Client. It returns an error only if BaseURL is not an
@@ -99,11 +102,12 @@ func New(cfg Config) (*Client, error) {
 	}
 
 	return &Client{
-		apiKey:    cfg.APIKey,
-		secretKey: cfg.SecretKey,
-		baseURL:   base,
-		userAgent: ua,
-		http:      rc,
+		apiKey:      cfg.APIKey,
+		secretKey:   cfg.SecretKey,
+		baseURL:     base,
+		userAgent:   ua,
+		http:        rc,
+		requestSlot: make(chan struct{}, 1),
 	}, nil
 }
 
@@ -242,6 +246,17 @@ func (c *Client) post(ctx context.Context, path string, body any, out any) error
 }
 
 func (c *Client) do(ctx context.Context, method, path string, query url.Values, body any, out any) error {
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("waiting to call %s %s: %w", method, path, ctx.Err())
+	case c.requestSlot <- struct{}{}:
+	}
+	defer func() { <-c.requestSlot }()
+	// Cancellation and acquisition can both be ready in the select above.
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("calling %s %s: %w", method, path, err)
+	}
+
 	endpoint := c.baseURL.String() + "/" + strings.TrimPrefix(path, "/")
 	if len(query) > 0 {
 		endpoint += "?" + query.Encode()
