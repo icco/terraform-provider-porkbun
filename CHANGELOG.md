@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+* Serialized API requests per configured client, including retries and response
+  consumption, to prevent concurrent-call HTTP 503 failures without serializing
+  other Terraform/OpenTofu providers. Waiting calls honor context cancellation
+  and deadlines. No resource schema or state changes.
+
 ## 1.0.0
 
 First release of the `icco/porkbun` fork of [`cullenmcdermott/terraform-provider-porkbun`](https://github.com/cullenmcdermott/terraform-provider-porkbun), which was archived in November 2025. The provider was rebuilt on current tooling, with a hand-written client for the subset of the Porkbun v3 JSON API it needs in place of `nrdcg/porkbun`.
