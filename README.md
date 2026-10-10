@@ -89,9 +89,11 @@ provider_installation {
 
 The daily Release workflow calculates and tags the next version when there are
 new commits. Manual runs on `main` default to `dry_run: true`, which builds a
-snapshot without creating a tag or publishing. Set `dry_run: false` to create
-the calculated tag and publish a real release. Existing tag pushes still release
-that tag directly.
+snapshot without creating a tag or publishing. Set `dry_run: false` to ensure
+the calculated tag exists at the release commit and publish a real release.
+Missing tags are created; matching tags are reused on retries, including their
+annotations. Conflicting tags fail rather than being moved or force-pushed.
+Existing tag pushes still release that tag directly.
 
 After a workflow fix, start a new run: rerunning an old failed job uses its old
 workflow revision. Test the tagging policy with `python3 tests/test-release-workflow.py -q`.
