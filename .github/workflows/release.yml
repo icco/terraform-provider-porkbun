@@ -2,7 +2,7 @@ name: Release
 on:
   schedule:
     # Daily. Nothing is released on a day with no releasable commits.
-    - cron: '17 13 * * *'
+    - cron: 17 13 * * *
   push:
     tags:
       - v*
@@ -35,8 +35,8 @@ jobs:
           tag_prefix: v
           # Patterns must be wrapped in / / to be treated as regexes. A bare string is
           # a literal substring match, so 'feat:' misses scoped commits like 'feat(x):'.
-          major_pattern: '/^[a-z]+(\(.+\))?!:/'
-          minor_pattern: '/feat(\(.+\))?:/'
+          major_pattern: /^[a-z]+(\(.+\))?!:/
+          minor_pattern: /feat(\(.+\))?:/
           version_format: ${major}.${minor}.${patch}
       - name: Create and push tag
         if: (github.event_name == 'schedule' && steps.versioning.outputs.changed == 'true') || (github.event_name == 'workflow_dispatch' && !inputs.dry_run)
@@ -59,11 +59,11 @@ jobs:
           passphrase: ${{ secrets.PASSPHRASE }}
       - name: Run GoReleaser
         if: github.event_name != 'schedule' || steps.versioning.outputs.changed == 'true'
-        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+        uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de
         with:
           # Pinned deliberately. `latest` means a GoReleaser release landing
           # between the rehearsal and the tag silently changes behaviour.
-          version: v2.18.1
+          version: v2.19.0
           args: |-
             ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run)
                 && 'release --snapshot --clean --skip=publish'
